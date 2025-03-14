@@ -155,7 +155,7 @@ class ImageProcessingService {
 
         for (int j = startY; j <= endY; j++) {
           for (int i = startX; i <= endX; i++) {
-            sum += grayscale.getPixel(i, j) & 0xFF;
+            sum += grayscale.getPixel(i, j).r.toInt();
             count++;
           }
         }
@@ -164,11 +164,15 @@ class ImageProcessingService {
         final threshold = mean - C;
 
         // Apply thresholding
-        final pixelValue = grayscale.getPixel(x, y) & 0xFF;
+        final pixelValue = grayscale.getPixel(x, y).r;
         if (pixelValue < threshold) {
-          binary.setPixel(x, y, 0xFF000000); // Black for holes
+          binary.setPixel(x, y, img.ColorRgb8(0, 0, 0)); // Black for holes
         } else {
-          binary.setPixel(x, y, 0xFFFFFFFF); // White for non-holes
+          binary.setPixel(
+            x,
+            y,
+            img.ColorRgb8(255, 255, 255),
+          ); // White for non-holes
         }
       }
     }
@@ -220,7 +224,7 @@ class HoleDetectionService {
               if (x < image.width && y < image.height) {
                 final pixelValue = image.getPixel(x, y);
                 final grayscaleValue =
-                    ((pixelValue >> 16) & 0xFF); // Use red channel as grayscale
+                    pixelValue.r; // Use red channel as grayscale
 
                 if (grayscaleValue < 128) {
                   darkPixels++;

@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../punchcard_generator.dart';
@@ -19,7 +24,8 @@ class PunchCardEditor extends StatefulWidget {
   State<PunchCardEditor> createState() => _PunchCardEditorState();
 }
 
-class _PunchCardEditorState extends State<PunchCardEditor> {
+class _PunchCardEditorState extends State<PunchCardEditor>
+    with TickerProviderStateMixin {
   final List<PunchCardProgram> _savedPrograms = [];
   PunchCardProgram? _currentProgram;
   final TextEditingController _titleController = TextEditingController();
@@ -37,8 +43,95 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
   bool _isAnalyzing = false;
   bool _isPreviewExpanded = false;
 
+  late AudioPlayer audioPlayer;
+  final List<GlobalKey> _cardKeys = [];
+  late AnimationController _shakeController;
+  bool _isShuffling = false;
+  final math.Random _random = math.Random();
+
+  late StreamSubscription<AccelerometerEvent> _accelerometerSubscription;
+  DateTime? _lastShake;
+  final double _shakeThreshold = 20.0;
+  final Duration _shakeCooldown = const Duration(milliseconds: 1000);
+
+  @override
+  void initState() {
+    super.initState();
+    _initShakeDetection();
+    _initAudio();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+  }
+
+  void _initShakeDetection() {
+    _accelerometerSubscription =
+        accelerometerEvents.listen((AccelerometerEvent event) {
+      final double acceleration = math.sqrt(
+        event.x * event.x + event.y * event.y + event.z * event.z,
+      );
+
+      final now = DateTime.now();
+      if (_lastShake == null || now.difference(_lastShake!) > _shakeCooldown) {
+        if (acceleration > _shakeThreshold &&
+            !_isShuffling &&
+            _savedPrograms.length > 1) {
+          _lastShake = now;
+          _shuffleCards();
+          HapticFeedback.mediumImpact();
+        }
+      }
+    });
+  }
+
+  void _initAudio() {
+    audioPlayer = AudioPlayer();
+  }
+
+  Future<void> _playShuffleSound() async {
+    await audioPlayer.play(AssetSource('sounds/shuffle.mp3'));
+  }
+
+  Future<void> _shuffleCards() async {
+    if (_isShuffling) return;
+
+    setState(() {
+      _isShuffling = true;
+      // Clear and reinitialize card keys
+      _cardKeys.clear();
+      for (int i = 0; i < _savedPrograms.length; i++) {
+        _cardKeys.add(GlobalKey());
+      }
+    });
+
+    // Play shuffle sound
+    await _playShuffleSound();
+
+    // Start shake animation
+    _shakeController.forward(from: 0);
+
+    // Wait for cards to "fall"
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Shuffle the saved programs
+    setState(() {
+      _savedPrograms.shuffle();
+    });
+
+    // Wait for animation to complete
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    setState(() {
+      _isShuffling = false;
+    });
+  }
+
   @override
   void dispose() {
+    _accelerometerSubscription.cancel();
+    audioPlayer.dispose();
+    _shakeController.dispose();
     _aiInputController.dispose();
     _titleController.dispose();
     super.dispose();
@@ -726,10 +819,23 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                   'Saved Punch Cards',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                FilledButton.icon(
-                  onPressed: () => _showEditorBottomSheet(context),
-                  icon: const Icon(Icons.add),
-                  label: const Text('New Card'),
+                Row(
+                  children: [
+                    if (_savedPrograms.length > 1)
+                      Tooltip(
+                        message: 'Shake your device to shuffle cards!',
+                        child: IconButton.filled(
+                          onPressed: _shuffleCards,
+                          icon: const Icon(Icons.shuffle),
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: () => _showEditorBottomSheet(context),
+                      icon: const Icon(Icons.add),
+                      label: const Text('New Card'),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -737,135 +843,88 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
           const Divider(),
           Expanded(
             child: _savedPrograms.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.folder_open,
-                          size: 64,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withAlpha(50),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No saved cards yet',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Create a new card to get started',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  )
-                : ReorderableListView.builder(
-                    padding: const EdgeInsets.all(16.0),
-                    itemCount: _savedPrograms.length,
-                    onReorder: (oldIndex, newIndex) {
-                      setState(() {
-                        if (newIndex > oldIndex) {
-                          newIndex -= 1;
-                        }
-                        final item = _savedPrograms.removeAt(oldIndex);
-                        _savedPrograms.insert(newIndex, item);
-                      });
-                    },
-                    itemBuilder: (context, index) {
-                      final program = _savedPrograms[index];
-                      return Dismissible(
-                        key: ValueKey(program),
-                        background: Container(
-                          color: Theme.of(context).colorScheme.error,
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.only(left: 16.0),
-                          child:
-                              const Icon(Icons.copy_all, color: Colors.white),
-                        ),
-                        secondaryBackground: Container(
-                          color: Theme.of(context).colorScheme.error,
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 16.0),
-                          child: const Icon(Icons.delete, color: Colors.white),
-                        ),
-                        confirmDismiss: (direction) async {
-                          if (direction == DismissDirection.endToStart) {
-                            // Delete action
-                            return await showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Delete Card'),
-                                content: Text(
-                                  'Are you sure you want to delete "${program.title}"? '
-                                  'This action cannot be undone.',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  FilledButton(
-                                    onPressed: () =>
-                                        Navigator.pop(context, true),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor:
-                                          Theme.of(context).colorScheme.error,
+                ? _buildEmptyState()
+                : AnimatedBuilder(
+                    animation: _shakeController,
+                    builder: (context, child) {
+                      return Transform(
+                        transform: Matrix4.identity()
+                          ..setEntry(3, 2, 0.001)
+                          ..rotateZ(_isShuffling
+                              ? math.sin(_shakeController.value * math.pi * 4) *
+                                  0.02
+                              : 0),
+                        alignment: Alignment.center,
+                        child: ReorderableListView.builder(
+                          padding: const EdgeInsets.all(16.0),
+                          itemCount: _savedPrograms.length,
+                          onReorder: _handleReorder,
+                          itemBuilder: (context, index) {
+                            final program = _savedPrograms[index];
+                            return Dismissible(
+                              key: ValueKey(program),
+                              background: Container(
+                                color: Theme.of(context).colorScheme.error,
+                                alignment: Alignment.centerLeft,
+                                padding: const EdgeInsets.only(left: 16.0),
+                                child: const Icon(Icons.copy_all,
+                                    color: Colors.white),
+                              ),
+                              secondaryBackground: Container(
+                                color: Theme.of(context).colorScheme.error,
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 16.0),
+                                child: const Icon(Icons.delete,
+                                    color: Colors.white),
+                              ),
+                              confirmDismiss: (direction) async {
+                                if (direction == DismissDirection.endToStart) {
+                                  // Delete action
+                                  return await showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Delete Card'),
+                                      content: Text(
+                                        'Are you sure you want to delete "${program.title}"? '
+                                        'This action cannot be undone.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: Theme.of(context)
+                                                .colorScheme
+                                                .error,
+                                          ),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
                                     ),
-                                    child: const Text('Delete'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          } else {
-                            // Duplicate action
-                            _duplicateProgram(program);
-                            return false;
-                          }
-                        },
-                        direction: DismissDirection.horizontal,
-                        onDismissed: (direction) {
-                          if (direction == DismissDirection.endToStart) {
-                            _deleteSavedProgram(index);
-                          }
-                        },
-                        child: StatefulBuilder(
-                          builder: (context, setCardState) {
-                            bool isSpinning = false;
-                            return Draggable(
-                              maxSimultaneousDrags: 1,
-                              onDragStarted: () =>
-                                  setCardState(() => isSpinning = true),
-                              onDragEnd: (_) =>
-                                  setCardState(() => isSpinning = false),
-                              onDraggableCanceled: (_, __) =>
-                                  setCardState(() => isSpinning = false),
-                              feedback: Material(
-                                elevation: 8,
-                                borderRadius: BorderRadius.circular(8),
-                                child: SizedBox(
-                                  width: MediaQuery.of(context).size.width - 32,
-                                  child: _buildCardContent(
-                                    context,
-                                    program,
-                                    index,
-                                    isSpinning: true,
-                                    isDragging: true,
-                                  ),
-                                ),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 16.0),
-                                child: _buildCardContent(
-                                  context,
-                                  program,
-                                  index,
-                                  isSpinning: isSpinning,
-                                  isDragging: false,
-                                ),
+                                  );
+                                } else {
+                                  // Duplicate action
+                                  _duplicateProgram(program);
+                                  return false;
+                                }
+                              },
+                              direction: DismissDirection.horizontal,
+                              onDismissed: (direction) {
+                                if (direction == DismissDirection.endToStart) {
+                                  _deleteSavedProgram(index);
+                                }
+                              },
+                              child: _buildCardContent(
+                                context,
+                                program,
+                                index,
+                                isSpinning: _isShuffling,
+                                isDragging: false,
                               ),
                             );
                           },
@@ -886,6 +945,41 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
     bool isSpinning = false,
     bool isDragging = false,
   }) {
+    if (_isShuffling) {
+      // During shuffling, apply random rotations and translations
+      final rotation = _random.nextDouble() * 0.3 - 0.15;
+      final offsetX = _random.nextDouble() * 100 - 50;
+      final offsetY = _random.nextDouble() * 50;
+
+      return TweenAnimationBuilder(
+        key: _cardKeys.length > index ? _cardKeys[index] : null,
+        tween: Tween<double>(begin: 0, end: 1),
+        duration: Duration(milliseconds: 1000 + _random.nextInt(500)),
+        curve: Curves.bounceOut,
+        builder: (context, double value, child) {
+          return Transform(
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001) // perspective
+              ..rotateZ(rotation * value)
+              ..translate(offsetX * value, offsetY * value),
+            alignment: Alignment.center,
+            child: child,
+          );
+        },
+        child: _buildBaseCard(context, program, index, isSpinning, isDragging),
+      );
+    }
+
+    return _buildBaseCard(context, program, index, isSpinning, isDragging);
+  }
+
+  Widget _buildBaseCard(
+    BuildContext context,
+    PunchCardProgram program,
+    int index,
+    bool isSpinning,
+    bool isDragging,
+  ) {
     return Card(
       margin: EdgeInsets.zero,
       elevation: isDragging ? 0 : 2,
@@ -906,19 +1000,42 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
                   children: [
-                    // Card number
+                    // Card number with shake effect during shuffling
                     Container(
                       margin: const EdgeInsets.only(right: 16),
-                      child: SegmentedNumber(
-                        number: index + 1,
-                        size: 32,
-                        isSpinning: isSpinning,
-                        activeColor: Theme.of(context).colorScheme.primary,
-                        inactiveColor: Theme.of(context)
-                            .colorScheme
-                            .primary
-                            .withAlpha(128),
-                      ),
+                      child: _isShuffling
+                          ? TweenAnimationBuilder(
+                              tween: Tween<double>(begin: 0, end: 1),
+                              duration: const Duration(milliseconds: 300),
+                              builder: (context, value, child) {
+                                return Transform.rotate(
+                                  angle: math.sin(value * math.pi * 4) * 0.1,
+                                  child: child,
+                                );
+                              },
+                              child: SegmentedNumber(
+                                number: index + 1,
+                                size: 32,
+                                isSpinning: isSpinning,
+                                activeColor:
+                                    Theme.of(context).colorScheme.primary,
+                                inactiveColor: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withAlpha(128),
+                              ),
+                            )
+                          : SegmentedNumber(
+                              number: index + 1,
+                              size: 32,
+                              isSpinning: isSpinning,
+                              activeColor:
+                                  Theme.of(context).colorScheme.primary,
+                              inactiveColor: Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withAlpha(128),
+                            ),
                     ),
                     // Mini preview
                     Container(
@@ -1104,8 +1221,10 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                             if (href != null) {
                               final uri = Uri.parse(href);
                               if (await canLaunchUrl(uri)) {
-                                await launchUrl(uri,
-                                    mode: LaunchMode.externalApplication);
+                                await launchUrl(
+                                  uri,
+                                  mode: LaunchMode.externalApplication,
+                                );
                               }
                             }
                           },
@@ -1286,6 +1405,43 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
           _isPreviewExpanded = !isExpanded;
         });
       },
+    );
+  }
+
+  void _handleReorder(int oldIndex, int newIndex) {
+    if (!_isShuffling) {
+      setState(() {
+        if (newIndex > oldIndex) {
+          newIndex -= 1;
+        }
+        final item = _savedPrograms.removeAt(oldIndex);
+        _savedPrograms.insert(newIndex, item);
+      });
+    }
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.folder_open,
+            size: 64,
+            color: Theme.of(context).colorScheme.primary.withAlpha(50),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No saved cards yet',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create a new card to get started',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+      ),
     );
   }
 }

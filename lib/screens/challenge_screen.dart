@@ -17,6 +17,54 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
   PunchCardProgram? _currentProgram;
   bool _isSubmitting = false;
   String? _validationResult;
+  bool _hasUnsavedChanges = false;
+
+  void _updateProgram(PunchCardProgram? program) {
+    setState(() {
+      _currentProgram = program;
+      _hasUnsavedChanges = true;
+    });
+  }
+
+  Future<bool> _confirmDiscard() async {
+    if (!_hasUnsavedChanges) return true;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved Changes'),
+        content: const Text(
+            'You have unsaved changes. Are you sure you want to discard them?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false;
+  }
+
+  Future<void> _resetProgram() async {
+    if (await _confirmDiscard()) {
+      setState(() {
+        _currentProgram = null;
+        _hasUnsavedChanges = false;
+      });
+    }
+  }
+
+  Future<void> _endChallenge() async {
+    if (await _confirmDiscard()) {
+      Navigator.of(context).pop();
+    }
+  }
 
   Future<void> _validateSolution() async {
     if (_currentProgram == null) {
@@ -43,156 +91,165 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
         context: context,
       );
 
+      // Reset unsaved changes flag after successful validation
+      setState(() {
+        _hasUnsavedChanges = false;
+      });
+
       if (mounted) {
         showDialog(
           context: context,
           builder: (context) => Dialog(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.8,
-                maxHeight: MediaQuery.of(context).size.height * 0.6,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          result['correct'] == true
-                              ? Icons.check_circle
-                              : Icons.warning,
-                          color: result['correct'] == true
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.error,
-                          size: 28,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Solution Review',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
-                    const Divider(),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'Score: ',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primaryContainer,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    '${result['score']}/100',
+            child: Material(
+              type: MaterialType.card,
+              borderRadius: BorderRadius.circular(12),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.8,
+                  maxHeight: MediaQuery.of(context).size.height * 0.6,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            result['correct'] == true
+                                ? Icons.check_circle
+                                : Icons.warning,
+                            color: result['correct'] == true
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.error,
+                            size: 28,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Solution Review',
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                      const Divider(),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Score: ',
                                     style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onPrimaryContainer,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 18,
                                     ),
                                   ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primaryContainer,
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Text(
+                                      '${result['score']}/100',
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'What You Did Well:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'What You Did Well:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            ...List<String>.from(result['correctPoints'])
-                                .map((point) => Padding(
-                                      padding: const EdgeInsets.only(
-                                        left: 16,
-                                        bottom: 4,
-                                      ),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text('• '),
-                                          Expanded(child: Text(point)),
-                                        ],
-                                      ),
-                                    )),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Areas for Improvement:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                              const SizedBox(height: 8),
+                              ...List<String>.from(result['correctPoints'])
+                                  .map((point) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 16,
+                                          bottom: 4,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text('• '),
+                                            Expanded(child: Text(point)),
+                                          ],
+                                        ),
+                                      )),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Areas for Improvement:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            ...List<String>.from(result['improvementPoints'])
-                                .map((point) => Padding(
-                                      padding: const EdgeInsets.only(
-                                        left: 16,
-                                        bottom: 4,
-                                      ),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text('• '),
-                                          Expanded(child: Text(point)),
-                                        ],
-                                      ),
-                                    )),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Advice:',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                              const SizedBox(height: 8),
+                              ...List<String>.from(result['improvementPoints'])
+                                  .map((point) => Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 16,
+                                          bottom: 4,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Text('• '),
+                                            Expanded(child: Text(point)),
+                                          ],
+                                        ),
+                                      )),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Advice:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(result['advice'] as String),
-                          ],
+                              const SizedBox(height: 8),
+                              Text(result['advice'] as String),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Close'),
-                        ),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Close'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -224,9 +281,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
         title: const Text('Challenge Mode'),
         actions: [
           TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop(); // End challenge
-            },
+            onPressed: _endChallenge,
             icon: const Icon(Icons.exit_to_app),
             label: const Text('End Challenge'),
           ),
@@ -287,11 +342,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
               padding: const EdgeInsets.all(16.0),
               child: PunchCardWorkspace(
                 initialProgram: _currentProgram,
-                onProgramChanged: (program) {
-                  setState(() {
-                    _currentProgram = program;
-                  });
-                },
+                onProgramChanged: _updateProgram,
                 showAiAnalysis: false,
                 readOnly: false,
                 showPreview: true,
@@ -305,11 +356,7 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _currentProgram = null;
-                    });
-                  },
+                  onPressed: _resetProgram,
                   child: const Text('Reset'),
                 ),
                 const SizedBox(width: 16),

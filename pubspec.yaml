@@ -48,6 +48,8 @@ dependencies:
   provider: ^6.1.2
   flutter_markdown: ^0.7.6+2
   url_launcher: ^6.3.1
+  sensors_plus: ^6.1.1
+  audioplayers: ^6.4.0
 
 dev_dependencies:
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -101,6 +103,7 @@ flutter:
 
   assets:
     - assets/icons/
+    - assets/sounds/
 
 flutter_launcher_icons:
   android: true

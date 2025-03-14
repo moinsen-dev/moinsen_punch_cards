@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'providers/challenge_provider.dart';
 import 'providers/settings_provider.dart';
-import 'screens/challenge_screen.dart';
+import 'screens/game_screen.dart';
 import 'screens/punch_card_editor.dart';
 import 'screens/settings_screen.dart';
 import 'screens/welcome_screen.dart';
@@ -73,7 +73,7 @@ class _MainScreenState extends State<MainScreen> {
         index: _selectedIndex,
         children: [
           PunchCardEditor(settingsService: settingsService),
-          const ChallengeScreen(),
+          const GameScreen(),
           SettingsScreen(
             settingsService: settingsService,
           ),
@@ -92,8 +92,8 @@ class _MainScreenState extends State<MainScreen> {
             label: 'Editor',
           ),
           NavigationDestination(
-            icon: Icon(Icons.extension),
-            label: 'Challenge',
+            icon: Icon(Icons.sports_esports),
+            label: 'Game',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings),

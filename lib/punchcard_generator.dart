@@ -456,7 +456,7 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
   final TextEditingController _textController = TextEditingController();
   bool _isGenerating = false;
   String? _errorMessage;
-  late SettingsService _settingsService;
+  final SettingsService _settingsService = SettingsService();
   String? _generatedSvg;
   String? _savedFilePath;
   final GlobalKey _punchCardKey = GlobalKey();
@@ -468,7 +468,7 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
   }
 
   Future<void> _initializeSettings() async {
-    _settingsService = await SettingsService.create();
+    await _settingsService.init();
   }
 
   @override
@@ -480,7 +480,7 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
   Future<void> _generatePunchCard() async {
     if (_textController.text.isEmpty) return;
 
-    final apiKey = _settingsService.getGeminiApiKey();
+    final apiKey = await _settingsService.getGeminiApiKey();
     if (apiKey == null || apiKey.isEmpty) {
       setState(() {
         _errorMessage = 'Please set your Gemini API key in settings first';

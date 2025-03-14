@@ -2,29 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsService extends ChangeNotifier {
+  static final SettingsService _instance = SettingsService._internal();
+  SharedPreferences? _prefs;
+
   static const String _geminiApiKeyKey = 'gemini_api_key';
   static const String _themeModeKey = 'theme_mode';
 
-  final SharedPreferences _prefs;
-
-  SettingsService(this._prefs);
-
-  static Future<SettingsService> create() async {
-    final prefs = await SharedPreferences.getInstance();
-    return SettingsService(prefs);
+  // Factory constructor to return the singleton instance
+  factory SettingsService() {
+    return _instance;
   }
 
-  String? getGeminiApiKey() {
-    return _prefs.getString(_geminiApiKeyKey);
+  // Private constructor
+  SettingsService._internal();
+
+  // Initialize SharedPreferences
+  Future<void> init() async {
+    _prefs ??= await SharedPreferences.getInstance();
+  }
+
+  Future<String?> getGeminiApiKey() async {
+    await init();
+    return _prefs?.getString(_geminiApiKeyKey);
   }
 
   Future<void> setGeminiApiKey(String apiKey) async {
-    await _prefs.setString(_geminiApiKeyKey, apiKey);
+    await init();
+    await _prefs?.setString(_geminiApiKeyKey, apiKey);
     notifyListeners();
   }
 
-  ThemeMode getThemeMode() {
-    final value = _prefs.getString(_themeModeKey);
+  Future<ThemeMode> getThemeMode() async {
+    await init();
+    final value = _prefs?.getString(_themeModeKey);
     return ThemeMode.values.firstWhere(
       (e) => e.toString() == value,
       orElse: () => ThemeMode.system,
@@ -32,7 +42,8 @@ class SettingsService extends ChangeNotifier {
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
-    await _prefs.setString(_themeModeKey, mode.toString());
+    await init();
+    await _prefs?.setString(_themeModeKey, mode.toString());
     notifyListeners();
   }
 }

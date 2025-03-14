@@ -18,15 +18,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _apiKeyController;
   bool _obscureApiKey = true;
-  late ThemeMode _selectedThemeMode;
+  ThemeMode _selectedThemeMode = ThemeMode.system;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _apiKeyController = TextEditingController(
-      text: widget.settingsService.getGeminiApiKey() ?? '',
-    );
-    _selectedThemeMode = widget.settingsService.getThemeMode();
+    _apiKeyController = TextEditingController();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final apiKey = await widget.settingsService.getGeminiApiKey();
+    final themeMode = await widget.settingsService.getThemeMode();
+
+    if (mounted) {
+      setState(() {
+        _apiKeyController.text = apiKey ?? '';
+        _selectedThemeMode = themeMode;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -37,18 +49,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveSettings() async {
     if (_formKey.currentState!.validate()) {
-      await widget.settingsService.setGeminiApiKey(_apiKeyController.text);
-      await widget.settingsService.setThemeMode(_selectedThemeMode);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Settings saved successfully')),
-        );
+      setState(() => _isLoading = true);
+
+      try {
+        await widget.settingsService.setGeminiApiKey(_apiKeyController.text);
+        await widget.settingsService.setThemeMode(_selectedThemeMode);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Settings saved successfully')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving settings: $e'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: Padding(
@@ -94,10 +128,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               (Set<ThemeMode> newSelection) async {
                             setState(() {
                               _selectedThemeMode = newSelection.first;
+                              _isLoading = true;
                             });
                             // Save the theme mode immediately
                             await widget.settingsService
                                 .setThemeMode(_selectedThemeMode);
+                            if (mounted) {
+                              setState(() => _isLoading = false);
+                            }
                           },
                         ),
                       ),
@@ -155,9 +193,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
-                onPressed: _saveSettings,
-                icon: const Icon(Icons.save),
-                label: const Text('Save Settings'),
+                onPressed: _isLoading ? null : _saveSettings,
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(_isLoading ? 'Saving...' : 'Save Settings'),
               ),
             ],
           ),

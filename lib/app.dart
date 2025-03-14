@@ -26,24 +26,32 @@ class App extends StatelessWidget {
       child: ChallengeProvider(
         child: Builder(
           builder: (context) {
-            return MaterialApp(
-              title: 'Moinsen Punch Cards',
-              theme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-                useMaterial3: true,
-              ),
-              darkTheme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(
-                  seedColor: Colors.deepPurple,
-                  brightness: Brightness.dark,
-                ),
-                useMaterial3: true,
-              ),
-              themeMode: context.watch<SettingsService>().getThemeMode(),
-              initialRoute: '/',
-              routes: {
-                '/': (context) => const WelcomeScreen(),
-                '/main': (context) => const MainScreen(),
+            final settingsService = context.watch<SettingsService>();
+
+            return FutureBuilder<ThemeMode>(
+              future: settingsService.getThemeMode(),
+              builder: (context, snapshot) {
+                return MaterialApp(
+                  title: 'Moinsen Punch Cards',
+                  theme: ThemeData(
+                    colorScheme:
+                        ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+                    useMaterial3: true,
+                  ),
+                  darkTheme: ThemeData(
+                    colorScheme: ColorScheme.fromSeed(
+                      seedColor: Colors.deepPurple,
+                      brightness: Brightness.dark,
+                    ),
+                    useMaterial3: true,
+                  ),
+                  themeMode: snapshot.data ?? ThemeMode.system,
+                  initialRoute: '/',
+                  routes: {
+                    '/': (context) => const WelcomeScreen(),
+                    '/main': (context) => const MainScreen(),
+                  },
+                );
               },
             );
           },
@@ -66,7 +74,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final settingsService = Provider.of<SettingsService>(context);
+    final settingsService = context.watch<SettingsService>();
 
     return Scaffold(
       body: IndexedStack(

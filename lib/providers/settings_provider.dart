@@ -13,8 +13,12 @@ class SettingsProvider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<SettingsService>(
-      future: SettingsService.create(),
+    return FutureBuilder(
+      future: () async {
+        final service = SettingsService();
+        await service.init();
+        return service;
+      }(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -22,17 +26,8 @@ class SettingsProvider extends StatelessWidget {
 
         final settingsService = snapshot.data!;
 
-        return MultiProvider(
-          providers: [
-            ChangeNotifierProvider<SettingsService>.value(
-              value: settingsService,
-            ),
-            Provider<void Function(ThemeMode)>.value(
-              value: (ThemeMode mode) async {
-                await settingsService.setThemeMode(mode);
-              },
-            ),
-          ],
+        return ChangeNotifierProvider<SettingsService>.value(
+          value: settingsService,
           child: child,
         );
       },

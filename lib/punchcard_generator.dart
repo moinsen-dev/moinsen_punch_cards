@@ -13,7 +13,6 @@ import 'package:pasteboard/pasteboard.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'screens/settings_screen.dart';
 import 'services/settings_service.dart';
 
 /// Domain model for a punch card instruction
@@ -49,6 +48,16 @@ class PunchCardProgram {
     this.maxColumns = 80,
     this.maxRows = 12,
   });
+
+  List<String> getOperations() {
+    return instructions.map((instruction) {
+      final rowsStr = instruction.rows.join(', ');
+      final paramsStr = instruction.parameters.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join(', ');
+      return 'Column ${instruction.column}: ${instruction.operation} (Rows: $rowsStr, $paramsStr)';
+    }).toList();
+  }
 }
 
 /// Service for generating SVG punch cards
@@ -447,7 +456,7 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
   final TextEditingController _textController = TextEditingController();
   bool _isGenerating = false;
   String? _errorMessage;
-  late SettingsService _settingsService;
+  final SettingsService _settingsService = SettingsService();
   String? _generatedSvg;
   String? _savedFilePath;
   final GlobalKey _punchCardKey = GlobalKey();
@@ -459,7 +468,7 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
   }
 
   Future<void> _initializeSettings() async {
-    _settingsService = await SettingsService.create();
+    await _settingsService.init();
   }
 
   @override
@@ -471,7 +480,7 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
   Future<void> _generatePunchCard() async {
     if (_textController.text.isEmpty) return;
 
-    final apiKey = _settingsService.getGeminiApiKey();
+    final apiKey = await _settingsService.getGeminiApiKey();
     if (apiKey == null || apiKey.isEmpty) {
       setState(() {
         _errorMessage = 'Please set your Gemini API key in settings first';
@@ -583,17 +592,6 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
     }
 
     return PunchCardProgram(title: json['title'], instructions: instructions);
-  }
-
-  void _openSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => SettingsScreen(
-          settingsService: _settingsService,
-          onThemeChanged: widget.onThemeChanged ?? (_) {},
-        ),
-      ),
-    );
   }
 
   Future<void> _copyToClipboard() async {
@@ -720,10 +718,6 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
               onPressed: _saveSvgFile,
             ),
           ],
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: _openSettings,
-          ),
         ],
       ),
       body: Padding(

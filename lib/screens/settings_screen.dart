@@ -4,8 +4,13 @@ import '../services/settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final SettingsService settingsService;
+  final Function(ThemeMode) onThemeChanged;
 
-  const SettingsScreen({super.key, required this.settingsService});
+  const SettingsScreen({
+    super.key,
+    required this.settingsService,
+    required this.onThemeChanged,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -15,6 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _apiKeyController;
   bool _obscureApiKey = true;
+  late ThemeMode _selectedThemeMode;
 
   @override
   void initState() {
@@ -22,6 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _apiKeyController = TextEditingController(
       text: widget.settingsService.getGeminiApiKey() ?? '',
     );
+    _selectedThemeMode = widget.settingsService.getThemeMode();
   }
 
   @override
@@ -33,6 +40,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveSettings() async {
     if (_formKey.currentState!.validate()) {
       await widget.settingsService.setGeminiApiKey(_apiKeyController.text);
+      await widget.settingsService.setThemeMode(_selectedThemeMode);
+      widget.onThemeChanged(_selectedThemeMode);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Settings saved successfully')),
@@ -52,6 +61,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Theme Settings',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      SegmentedButton<ThemeMode>(
+                        segments: const [
+                          ButtonSegment<ThemeMode>(
+                            value: ThemeMode.system,
+                            label: Text('System'),
+                            icon: Icon(Icons.brightness_auto),
+                          ),
+                          ButtonSegment<ThemeMode>(
+                            value: ThemeMode.light,
+                            label: Text('Light'),
+                            icon: Icon(Icons.brightness_5),
+                          ),
+                          ButtonSegment<ThemeMode>(
+                            value: ThemeMode.dark,
+                            label: Text('Dark'),
+                            icon: Icon(Icons.brightness_4),
+                          ),
+                        ],
+                        selected: {_selectedThemeMode},
+                        onSelectionChanged: (Set<ThemeMode> newSelection) {
+                          setState(() {
+                            _selectedThemeMode = newSelection.first;
+                          });
+                          widget.onThemeChanged(_selectedThemeMode);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),

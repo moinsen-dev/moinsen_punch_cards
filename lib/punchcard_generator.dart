@@ -413,7 +413,7 @@ PunchCardProgram createHelloWorldProgram() {
   final builder = PunchCardProgramBuilder('HELLO WORLD PROGRAM');
 
   // Add each character of "Hello World!" to the punch card
-  final message = 'Hello World!';
+  const message = 'Hello World!';
   for (int i = 0; i < message.length; i++) {
     builder.addCharacter(i * 2 + 1, message[i]);
   }
@@ -435,7 +435,9 @@ class PunchCardSvgViewer extends StatelessWidget {
 
 // Example usage in a Flutter app
 class PunchCardGeneratorApp extends StatefulWidget {
-  const PunchCardGeneratorApp({super.key});
+  final Function(ThemeMode)? onThemeChanged;
+
+  const PunchCardGeneratorApp({super.key, this.onThemeChanged});
 
   @override
   State<PunchCardGeneratorApp> createState() => _PunchCardGeneratorAppState();
@@ -586,7 +588,10 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
   void _openSettings() async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => SettingsScreen(settingsService: _settingsService),
+        builder: (context) => SettingsScreen(
+          settingsService: _settingsService,
+          onThemeChanged: widget.onThemeChanged ?? (_) {},
+        ),
       ),
     );
   }
@@ -619,9 +624,8 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
       });
 
       // Get the RenderRepaintBoundary
-      final boundary =
-          _punchCardKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
+      final boundary = _punchCardKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
       if (boundary == null) {
         throw Exception('Failed to find the punch card widget');
       }
@@ -759,14 +763,13 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: _isGenerating ? null : _generatePunchCard,
-              icon:
-                  _isGenerating
-                      ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Icon(Icons.auto_awesome),
+              icon: _isGenerating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.auto_awesome),
               label: Text(
                 _isGenerating ? 'Generating...' : 'Generate Punch Card',
               ),

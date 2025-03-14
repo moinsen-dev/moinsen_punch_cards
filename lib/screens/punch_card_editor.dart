@@ -109,24 +109,23 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Add Instruction'),
-            content: AddInstructionDialog(
-              onAdd: (instruction) {
-                setState(() {
-                  _currentProgram = PunchCardProgram(
-                    title: _currentProgram!.title,
-                    instructions: [
-                      ..._currentProgram!.instructions,
-                      instruction,
-                    ],
-                  );
-                });
-                Navigator.pop(context);
-              },
-            ),
-          ),
+      builder: (context) => AlertDialog(
+        title: const Text('Add Instruction'),
+        content: AddInstructionDialog(
+          onAdd: (instruction) {
+            setState(() {
+              _currentProgram = PunchCardProgram(
+                title: _currentProgram!.title,
+                instructions: [
+                  ..._currentProgram!.instructions,
+                  instruction,
+                ],
+              );
+            });
+            Navigator.pop(context);
+          },
+        ),
+      ),
     );
   }
 
@@ -150,26 +149,25 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Edit Instruction'),
-            content: AddInstructionDialog(
-              initialInstruction: _currentProgram!.instructions[index],
-              onAdd: (instruction) {
-                setState(() {
-                  final newInstructions = List<PunchCardInstruction>.from(
-                    _currentProgram!.instructions,
-                  );
-                  newInstructions[index] = instruction;
-                  _currentProgram = PunchCardProgram(
-                    title: _currentProgram!.title,
-                    instructions: newInstructions,
-                  );
-                });
-                Navigator.pop(context);
-              },
-            ),
-          ),
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Instruction'),
+        content: AddInstructionDialog(
+          initialInstruction: _currentProgram!.instructions[index],
+          onAdd: (instruction) {
+            setState(() {
+              final newInstructions = List<PunchCardInstruction>.from(
+                _currentProgram!.instructions,
+              );
+              newInstructions[index] = instruction;
+              _currentProgram = PunchCardProgram(
+                title: _currentProgram!.title,
+                instructions: newInstructions,
+              );
+            });
+            Navigator.pop(context);
+          },
+        ),
+      ),
     );
   }
 
@@ -314,150 +312,114 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
       _aiInputController.clear();
     });
 
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
       useSafeArea: true,
-      builder:
-          (context) => StatefulBuilder(
-            builder:
-                (context, setModalState) => DraggableScrollableSheet(
-                  initialChildSize: 0.9,
-                  minChildSize: 0.5,
-                  maxChildSize: 0.95,
-                  expand: false,
-                  builder:
-                      (context, scrollController) => Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  program != null
-                                      ? 'Edit Punch Card'
-                                      : 'New Punch Card',
-                                  style: Theme.of(context).textTheme.titleLarge,
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.close),
-                                  onPressed: () => Navigator.pop(context),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Divider(),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextField(
-                                  controller: _titleController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Card Title',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                SegmentedButton<EditorMode>(
-                                  segments: const [
-                                    ButtonSegment<EditorMode>(
-                                      value: EditorMode.instructions,
-                                      label: Text('Instructions'),
-                                      icon: Icon(Icons.code),
-                                    ),
-                                    ButtonSegment<EditorMode>(
-                                      value: EditorMode.directPunch,
-                                      label: Text('Direct Punch'),
-                                      icon: Icon(Icons.grid_on),
-                                    ),
-                                    ButtonSegment<EditorMode>(
-                                      value: EditorMode.aiText,
-                                      label: Text('AI Input'),
-                                      icon: Icon(Icons.auto_awesome),
-                                    ),
-                                  ],
-                                  selected: {_currentMode},
-                                  onSelectionChanged: (
-                                    Set<EditorMode> newSelection,
-                                  ) {
-                                    setModalState(() {
-                                      setState(() {
-                                        _currentMode = newSelection.first;
-                                      });
-                                    });
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-                                if (_currentMode == EditorMode.instructions)
-                                  FilledButton.icon(
-                                    onPressed: _addInstruction,
-                                    icon: const Icon(Icons.add),
-                                    label: const Text('Add Instruction'),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: _buildEditorContent(scrollController),
-                          ),
-                          if (_currentProgram!.instructions.isNotEmpty)
-                            Container(
-                              height: 200,
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Preview',
-                                    style:
-                                        Theme.of(context).textTheme.titleMedium,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Expanded(
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: PunchCardSvgViewer(
-                                        svgString: _svgGenerator.generateSvg(
-                                          _currentProgram!,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          SafeArea(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  FilledButton.icon(
-                                    onPressed: () {
-                                      _saveProgram();
-                                      Navigator.pop(context);
-                                    },
-                                    icon: const Icon(Icons.save),
-                                    label: const Text('Save Card'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                ),
+      builder: (context) => Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Text(
+              program != null ? 'Edit Punch Card' : 'New Punch Card',
+            ),
+            actions: [
+              FilledButton.icon(
+                onPressed: () {
+                  _saveProgram();
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.save),
+                label: const Text('Save Card'),
+              ),
+              const SizedBox(width: 16),
+            ],
           ),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Card Title',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SegmentedButton<EditorMode>(
+                      segments: const [
+                        ButtonSegment<EditorMode>(
+                          value: EditorMode.instructions,
+                          label: Text('Instructions'),
+                          icon: Icon(Icons.code),
+                        ),
+                        ButtonSegment<EditorMode>(
+                          value: EditorMode.directPunch,
+                          label: Text('Direct Punch'),
+                          icon: Icon(Icons.grid_on),
+                        ),
+                        ButtonSegment<EditorMode>(
+                          value: EditorMode.aiText,
+                          label: Text('AI Input'),
+                          icon: Icon(Icons.auto_awesome),
+                        ),
+                      ],
+                      selected: {_currentMode},
+                      onSelectionChanged: (Set<EditorMode> newSelection) {
+                        setState(() {
+                          _currentMode = newSelection.first;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    if (_currentMode == EditorMode.instructions)
+                      FilledButton.icon(
+                        onPressed: _addInstruction,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add Instruction'),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _buildEditorContent(ScrollController()),
+              ),
+              if (_currentProgram!.instructions.isNotEmpty)
+                Container(
+                  height: 200,
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Preview',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: PunchCardSvgViewer(
+                            svgString: _svgGenerator.generateSvg(
+                              _currentProgram!,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -511,75 +473,100 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
   }
 
   Widget _buildDirectPunchEditor() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(
-        width: 1600, // Allows for good visibility of the 80 columns
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Column numbers
-            Row(
-              children: [
-                const SizedBox(width: 50), // Space for row labels
-                ...List.generate(
-                  80,
-                  (col) => Expanded(
-                    child: Text(
-                      '${col + 1}',
-                      style: const TextStyle(fontSize: 10),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(),
-            // Punch grid
-            Expanded(
-              child: ListView.builder(
-                itemCount: 12,
-                itemBuilder: (context, row) {
-                  String rowLabel =
-                      row <= 1 ? (row == 0 ? 'Y' : 'X') : '${row - 2}';
-                  return Row(
-                    children: [
-                      SizedBox(
-                        width: 50,
+    return Container(
+      color: Colors.yellow[50], // Light yellow background
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width,
+            minWidth: 800,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Column numbers
+              Container(
+                color: Colors.yellow[100], // Slightly darker yellow for header
+                child: Row(
+                  children: [
+                    const SizedBox(width: 50), // Space for row labels
+                    ...List.generate(
+                      80,
+                      (col) => Expanded(
                         child: Text(
-                          rowLabel,
+                          '${col + 1}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      ...List.generate(
-                        80,
-                        (col) => Expanded(
-                          child: InkWell(
-                            onTap: () => _toggleHole(row, col),
-                            child: Container(
-                              margin: const EdgeInsets.all(2),
-                              height: 30,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color:
-                                    _punchedHoles[row][col]
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              // Punch grid
+              SizedBox(
+                height:
+                    MediaQuery.of(context).size.height - 400, // Dynamic height
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: 12,
+                  itemBuilder: (context, row) {
+                    String rowLabel =
+                        row <= 1 ? (row == 0 ? 'Y' : 'X') : '${row - 2}';
+                    return Container(
+                      color:
+                          row % 2 == 0 ? Colors.yellow[50] : Colors.yellow[100],
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 50,
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            color:
+                                Colors.yellow[200], // Darker yellow for labels
+                            child: Text(
+                              rowLabel,
+                              textAlign: TextAlign.center,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          ...List.generate(
+                            80,
+                            (col) => Expanded(
+                              child: InkWell(
+                                onTap: () => _toggleHole(row, col),
+                                child: Container(
+                                  margin: const EdgeInsets.all(2),
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _punchedHoles[row][col]
                                         ? Theme.of(context).colorScheme.primary
-                                        : Colors.grey.withOpacity(0.2),
-                                border: Border.all(
-                                  color: Colors.grey.withOpacity(0.5),
+                                        : Colors.white.withAlpha(150),
+                                    border: Border.all(
+                                      color: Colors.yellow[200]!,
+                                      width: 1,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -610,84 +597,82 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
           ),
           const Divider(),
           Expanded(
-            child:
-                _savedPrograms.isEmpty
-                    ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.folder_open,
-                            size: 64,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withOpacity(0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No saved cards yet',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Create a new card to get started',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    )
-                    : ListView.builder(
-                      itemCount: _savedPrograms.length,
-                      itemBuilder: (context, index) {
-                        final program = _savedPrograms[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 8.0,
-                          ),
-                          child: ListTile(
-                            leading: Icon(
-                              Icons.view_column_rounded,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            title: Text(program.title),
-                            subtitle: Text(
-                              '${program.instructions.length} instructions',
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.copy),
-                                  tooltip: 'Duplicate',
-                                  onPressed: () {
-                                    _duplicateProgram(program);
-                                    _showEditorBottomSheet(
-                                      context,
-                                      program: _currentProgram,
-                                    );
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  tooltip: 'Edit',
-                                  onPressed:
-                                      () => _showEditorBottomSheet(
-                                        context,
-                                        program: program,
-                                      ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete),
-                                  tooltip: 'Delete',
-                                  onPressed: () => _deleteSavedProgram(index),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+            child: _savedPrograms.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.folder_open,
+                          size: 64,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withAlpha(50),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No saved cards yet',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Create a new card to get started',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
                     ),
+                  )
+                : ListView.builder(
+                    itemCount: _savedPrograms.length,
+                    itemBuilder: (context, index) {
+                      final program = _savedPrograms[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 8.0,
+                        ),
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.view_column_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          title: Text(program.title),
+                          subtitle: Text(
+                            '${program.instructions.length} instructions',
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.copy),
+                                tooltip: 'Duplicate',
+                                onPressed: () {
+                                  _duplicateProgram(program);
+                                  _showEditorBottomSheet(
+                                    context,
+                                    program: _currentProgram,
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                tooltip: 'Edit',
+                                onPressed: () => _showEditorBottomSheet(
+                                  context,
+                                  program: program,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                tooltip: 'Delete',
+                                onPressed: () => _deleteSavedProgram(index),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -787,13 +772,12 @@ class _AddInstructionDialogState extends State<AddInstructionDialog> {
                 labelText: 'Operation',
                 border: OutlineInputBorder(),
               ),
-              items:
-                  _operations.map((String operation) {
-                    return DropdownMenuItem<String>(
-                      value: operation,
-                      child: Text(operation),
-                    );
-                  }).toList(),
+              items: _operations.map((String operation) {
+                return DropdownMenuItem<String>(
+                  value: operation,
+                  child: Text(operation),
+                );
+              }).toList(),
               onChanged: (String? newValue) {
                 setState(() {
                   _operation = newValue!;
@@ -802,7 +786,7 @@ class _AddInstructionDialogState extends State<AddInstructionDialog> {
             ),
             const SizedBox(height: 16),
             // Rows selection
-            Text('Select Rows (Y=0, X=1, 0-9=2-11)'),
+            const Text('Select Rows (Y=0, X=1, 0-9=2-11)'),
             Wrap(
               spacing: 8,
               children: List.generate(12, (index) {

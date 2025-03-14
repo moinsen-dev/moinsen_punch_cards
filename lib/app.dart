@@ -23,12 +23,29 @@ class PunchCardApp extends StatefulWidget {
 }
 
 class _PunchCardAppState extends State<PunchCardApp> {
-  ThemeMode _themeMode = ThemeMode.system;
+  late SettingsService _settingsService;
+  ThemeMode _themeMode = ThemeMode.system; // Default value
 
-  void _handleThemeChanged(ThemeMode mode) {
+  @override
+  void initState() {
+    super.initState();
+    _initializeSettings();
+  }
+
+  Future<void> _initializeSettings() async {
+    _settingsService = await SettingsService.create();
+    if (mounted) {
+      setState(() {
+        _themeMode = _settingsService.getThemeMode();
+      });
+    }
+  }
+
+  void _handleThemeChanged(ThemeMode mode) async {
     setState(() {
       _themeMode = mode;
     });
+    await _settingsService.setThemeMode(mode);
   }
 
   @override
@@ -53,8 +70,7 @@ class _PunchCardAppState extends State<PunchCardApp> {
       initialRoute: '/',
       routes: {
         '/': (context) => const WelcomeScreen(),
-        '/main':
-            (context) => PunchCardMainScreen(
+        '/main': (context) => PunchCardMainScreen(
               onThemeChanged: _handleThemeChanged,
               currentTheme: _themeMode,
             ),
@@ -103,7 +119,8 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
     setState(() {
       _pages = [
         const HomePage(), // Process Card page
-        const PunchCardGeneratorApp(), // Generate Card page
+        PunchCardGeneratorApp(
+            onThemeChanged: widget.onThemeChanged), // Generate Card page
         PunchCardEditor(settingsService: _settingsService), // Editor page
       ];
     });
@@ -124,62 +141,61 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
   void _openHelp(BuildContext context) {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('MoinsenPunchcard Features'),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildHelpSection(
-                    'Process Cards',
-                    'Upload and process physical punch cards:',
-                    [
-                      'Camera capture support',
-                      'Image processing and recognition',
-                      'Execute punch card instructions',
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildHelpSection(
-                    'Generate Cards',
-                    'Create new punch cards:',
-                    [
-                      'AI-powered text to punch card conversion',
-                      'SVG and PNG export options',
-                      'Copy to clipboard functionality',
-                      'Save and share capabilities',
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildHelpSection(
-                    'Edit Cards',
-                    'Create and edit punch cards manually:',
-                    [
-                      'Visual punch card editor',
-                      'Add/edit/delete instructions',
-                      'Live preview of the punch card',
-                      'Save and manage multiple cards',
-                      'Support for all punch card operations',
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _buildHelpSection('Settings', 'Customize your experience:', [
-                    'Theme customization (Light/Dark/System)',
-                    'API key configuration',
-                    'Processing preferences',
-                  ]),
+      builder: (context) => AlertDialog(
+        title: const Text('MoinsenPunchcard Features'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildHelpSection(
+                'Process Cards',
+                'Upload and process physical punch cards:',
+                [
+                  'Camera capture support',
+                  'Image processing and recognition',
+                  'Execute punch card instructions',
                 ],
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
+              const SizedBox(height: 16),
+              _buildHelpSection(
+                'Generate Cards',
+                'Create new punch cards:',
+                [
+                  'AI-powered text to punch card conversion',
+                  'SVG and PNG export options',
+                  'Copy to clipboard functionality',
+                  'Save and share capabilities',
+                ],
               ),
+              const SizedBox(height: 16),
+              _buildHelpSection(
+                'Edit Cards',
+                'Create and edit punch cards manually:',
+                [
+                  'Visual punch card editor',
+                  'Add/edit/delete instructions',
+                  'Live preview of the punch card',
+                  'Save and manage multiple cards',
+                  'Support for all punch card operations',
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildHelpSection('Settings', 'Customize your experience:', [
+                'Theme customization (Light/Dark/System)',
+                'API key configuration',
+                'Processing preferences',
+              ]),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -222,37 +238,39 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: 'Settings',
-            onPressed:
-                () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder:
-                        (context) =>
-                            SettingsScreen(settingsService: _settingsService),
-                  ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SettingsScreen(
+                  settingsService: _settingsService,
+                  onThemeChanged: widget.onThemeChanged,
                 ),
+              ),
+            ),
           ),
         ],
       ),
-      body:
-          _pages == null
-              ? const Center(child: CircularProgressIndicator())
-              : FadeTransition(
-                opacity: _fadeAnimation,
-                child: _pages![_selectedIndex],
-              ),
+      body: _pages == null
+          ? const Center(child: CircularProgressIndicator())
+          : FadeTransition(
+              opacity: _fadeAnimation,
+              child: _pages![_selectedIndex],
+            ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onItemTapped,
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.input), label: 'Process Card'),
+          NavigationDestination(
+            icon: Icon(Icons.input),
+            label: 'Process Card',
+          ),
           NavigationDestination(
             icon: Icon(Icons.add_circle_outline),
             label: 'Generate Card',
           ),
           NavigationDestination(
-            icon: Icon(Icons.edit_document),
-            label: 'Edit Card',
+            icon: Icon(Icons.code),
+            label: 'Programmer',
           ),
         ],
       ),
@@ -269,8 +287,8 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
                   Text(
                     'Settings',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                    ),
+                          color: Theme.of(context).colorScheme.onPrimary,
+                        ),
                   ),
                 ],
               ),
@@ -289,7 +307,10 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
                     value: ThemeMode.light,
                     child: Text('Light'),
                   ),
-                  DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
+                  DropdownMenuItem(
+                    value: ThemeMode.dark,
+                    child: Text('Dark'),
+                  ),
                 ],
                 onChanged: (ThemeMode? newMode) {
                   if (newMode != null) {
@@ -299,12 +320,12 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
               ),
             ),
             const Divider(),
-            AboutListTile(
-              icon: const Icon(Icons.info),
+            const AboutListTile(
+              icon: Icon(Icons.info),
               applicationName: 'MoinsenPunchcard',
               applicationVersion: '1.0.0',
               applicationLegalese: '©2024 Moinsen',
-              child: const Text('About'),
+              child: Text('About'),
             ),
           ],
         ),

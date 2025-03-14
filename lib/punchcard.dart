@@ -63,9 +63,8 @@ class Instruction {
 
   @override
   String toString() {
-    String paramString = parameters.entries
-        .map((e) => '${e.key}: ${e.value}')
-        .join(', ');
+    String paramString =
+        parameters.entries.map((e) => '${e.key}: ${e.value}').join(', ');
     return '$operation($paramString)';
   }
 }
@@ -654,10 +653,9 @@ class HomePageState extends State<HomePage> {
                   ),
                 ),
                 isActive: _currentStep >= 1,
-                state:
-                    _punchCard.imageBytes.isEmpty
-                        ? StepState.disabled
-                        : StepState.indexed,
+                state: _punchCard.imageBytes.isEmpty
+                    ? StepState.disabled
+                    : StepState.indexed,
               ),
               Step(
                 title: const Text('Instruction Interpretation'),
@@ -666,10 +664,9 @@ class HomePageState extends State<HomePage> {
                   child: SingleChildScrollView(child: _buildInstructionStep()),
                 ),
                 isActive: _currentStep >= 2,
-                state:
-                    _punchCard.holeMatrix.isEmpty
-                        ? StepState.disabled
-                        : StepState.indexed,
+                state: _punchCard.holeMatrix.isEmpty
+                    ? StepState.disabled
+                    : StepState.indexed,
               ),
               Step(
                 title: const Text('Execution Results'),
@@ -678,10 +675,9 @@ class HomePageState extends State<HomePage> {
                   child: SingleChildScrollView(child: _buildExecutionStep()),
                 ),
                 isActive: _currentStep >= 3,
-                state:
-                    _punchCard.instructions.isEmpty
-                        ? StepState.disabled
-                        : StepState.indexed,
+                state: _punchCard.instructions.isEmpty
+                    ? StepState.disabled
+                    : StepState.indexed,
               ),
             ],
           ),
@@ -792,7 +788,7 @@ class HomePageState extends State<HomePage> {
             Row(
               children: [
                 // Empty cell for corner
-                SizedBox(width: 40, height: 20),
+                const SizedBox(width: 40, height: 20),
                 // Column numbers (displayed vertically for space efficiency)
                 for (int col = 0; col < _punchCard.columns; col += 5)
                   SizedBox(
@@ -821,22 +817,18 @@ class HomePageState extends State<HomePage> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        for (
-                          int colGroup = 0;
-                          colGroup < _punchCard.columns;
-                          colGroup += 5
-                        )
+                        for (int colGroup = 0;
+                            colGroup < _punchCard.columns;
+                            colGroup += 5)
                           Column(
                             children: [
                               for (int row = 0; row < _punchCard.rows; row++)
                                 Row(
                                   children: [
-                                    for (
-                                      int col = colGroup;
-                                      col < colGroup + 5 &&
-                                          col < _punchCard.columns;
-                                      col++
-                                    )
+                                    for (int col = colGroup;
+                                        col < colGroup + 5 &&
+                                            col < _punchCard.columns;
+                                        col++)
                                       SizedBox(
                                         width: 20,
                                         height: 20,
@@ -971,38 +963,38 @@ class HomePageState extends State<HomePage> {
         result.output.isEmpty
             ? const Text('No output produced')
             : Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(4),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView.builder(
+                  itemCount: result.output.length,
+                  itemBuilder: (context, index) {
+                    return Text('> ${result.output[index]}');
+                  },
+                ),
               ),
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: ListView.builder(
-                itemCount: result.output.length,
-                itemBuilder: (context, index) {
-                  return Text('> ${result.output[index]}');
-                },
-              ),
-            ),
         const SizedBox(height: 16),
         Text('Memory Dump:', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         result.memoryDump.isEmpty
             ? const Text('No memory values to display')
             : Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(4),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView.builder(
+                  itemCount: result.memoryDump.length,
+                  itemBuilder: (context, index) {
+                    return Text(result.memoryDump[index]);
+                  },
+                ),
               ),
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: ListView.builder(
-                itemCount: result.memoryDump.length,
-                itemBuilder: (context, index) {
-                  return Text(result.memoryDump[index]);
-                },
-              ),
-            ),
         const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1213,66 +1205,65 @@ class HomePageState extends State<HomePage> {
   void _showHelpDialog() {
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Punch Card Processor Help'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'About Punch Cards',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const Text(
-                    'Punch cards were an early form of data storage and program input. '
-                    'Each card contains a pattern of holes that represent instructions or data.',
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Using This App',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const Text(
-                    '1. Select or capture an image of a punch card\n'
-                    '2. The app will detect the hole pattern\n'
-                    '3. The pattern will be interpreted as instructions\n'
-                    '4. Execute the instructions to see the results',
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Supported Instructions',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const Text(
-                    'PRINT: Display a value\n'
-                    'LOAD: Load a value from memory\n'
-                    'STORE: Store a value to memory\n'
-                    'ADD/SUB/MUL/DIV: Arithmetic operations\n'
-                    'JMP/JZ/JN: Control flow instructions\n'
-                    'DATA: Data definition',
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Tips',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const Text(
-                    '• Ensure good lighting when taking photos\n'
-                    '• Keep the card flat and aligned with the frame\n'
-                    '• Try to maximize contrast between holes and card',
-                  ),
-                ],
+      builder: (context) => AlertDialog(
+        title: const Text('Punch Card Processor Help'),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'About Punch Cards',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
+              Text(
+                'Punch cards were an early form of data storage and program input. '
+                'Each card contains a pattern of holes that represent instructions or data.',
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Using This App',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '1. Select or capture an image of a punch card\n'
+                '2. The app will detect the hole pattern\n'
+                '3. The pattern will be interpreted as instructions\n'
+                '4. Execute the instructions to see the results',
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Supported Instructions',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'PRINT: Display a value\n'
+                'LOAD: Load a value from memory\n'
+                'STORE: Store a value to memory\n'
+                'ADD/SUB/MUL/DIV: Arithmetic operations\n'
+                'JMP/JZ/JN: Control flow instructions\n'
+                'DATA: Data definition',
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Tips',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                '• Ensure good lighting when taking photos\n'
+                '• Keep the card flat and aligned with the frame\n'
+                '• Try to maximize contrast between holes and card',
               ),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
     );
   }
 }

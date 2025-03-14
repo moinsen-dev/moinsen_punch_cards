@@ -88,7 +88,9 @@ class _InfoCarouselState extends State<InfoCarousel> {
                         const SizedBox(height: 16),
                         Text(
                           _items[index].title,
-                          style: Theme.of(context).textTheme.titleLarge
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
@@ -117,12 +119,11 @@ class _InfoCarouselState extends State<InfoCarousel> {
               height: 8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color:
-                    _currentPage == index
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(
-                          context,
-                        ).colorScheme.primary.withOpacity(0.2),
+                color: _currentPage == index
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(
+                        context,
+                      ).colorScheme.primary.withAlpha(20),
               ),
             ),
           ),

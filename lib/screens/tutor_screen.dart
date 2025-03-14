@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../widgets/segmented_number.dart';
@@ -198,6 +201,8 @@ Tips for Success:
 Ready to test your knowledge? Click 'Start Quiz' when you're ready!
 """;
 
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
@@ -228,12 +233,34 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
       CurvedAnimation(parent: _questionController, curve: Curves.easeOut),
     );
 
+    // Initialize timer controller
     _timerController = AnimationController(
       duration: const Duration(seconds: 1),
       vsync: this,
-    )..addListener(_updateTimer);
+    );
 
     _questionController.forward();
+  }
+
+  void _startTimer() {
+    // Reset and start the timer
+    _timerController.stop();
+    _timerController.reset();
+    _timerController.repeat();
+
+    // Start the countdown
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0 && !_isInTutorial) {
+        setState(() {
+          _remainingSeconds--;
+        });
+        if (_remainingSeconds <= 0) {
+          timer.cancel();
+          _showTimeUp();
+        }
+      }
+    });
   }
 
   @override
@@ -242,20 +269,8 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
     _feedbackController.dispose();
     _questionController.dispose();
     _timerController.dispose();
+    _timer?.cancel();
     super.dispose();
-  }
-
-  void _updateTimer() {
-    if (_remainingSeconds > 0 && !_isInTutorial) {
-      setState(() {
-        _remainingSeconds--;
-      });
-      if (_remainingSeconds > 0) {
-        _timerController.forward(from: 0);
-      } else {
-        _showTimeUp();
-      }
-    }
   }
 
   void _startQuiz() {
@@ -270,14 +285,13 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
       _remainingSeconds = 180; // Reset to 3 minutes
     });
 
-    // Start the timer immediately
-    Future.microtask(() {
-      _timerController.forward(from: 0);
-    });
+    // Start the timer
+    _startTimer();
   }
 
   void _showTimeUp() {
-    _timerController.stop(); // Stop the timer
+    _timerController.stop(); // Stop the timer animation
+    _timer?.cancel(); // Stop the countdown
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -336,6 +350,8 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
   void _checkAnswer(int selectedIndex) {
     if (_hasAnswered) return;
 
+    late final OverlayEntry overlayEntry;
+
     setState(() {
       _hasAnswered = true;
       _selectedAnswer = selectedIndex;
@@ -351,18 +367,23 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
       }
     });
 
-    _feedbackController.forward(from: 0);
+    // Show the overlay
+    overlayEntry = OverlayEntry(
+      builder: (context) => _AnswerOverlay(
+        isCorrect: _isCorrect!,
+        explanation: _questions[_currentQuestionIndex].explanation,
+        onFinished: () {
+          overlayEntry.remove();
+          if (_consecutiveCorrect >= 5) {
+            _showGameComplete();
+          } else {
+            _nextQuestion();
+          }
+        },
+      ),
+    );
 
-    // Wait before showing next question or ending game
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-
-      if (_consecutiveCorrect >= 5) {
-        _showGameComplete();
-      } else {
-        _nextQuestion();
-      }
-    });
+    Overlay.of(context).insert(overlayEntry);
   }
 
   void _showGameComplete() {
@@ -418,20 +439,38 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
     return Scaffold(
       appBar: AppBar(
         title: const Text('Punch Card Tutor'),
+        backgroundColor: const Color(0xFF000B2C),
         actions: [
           if (!_isInTutorial) ...[
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 children: [
-                  const Icon(Icons.timer),
+                  const Icon(Icons.timer, color: Colors.white70),
                   const SizedBox(width: 8),
-                  SegmentedNumber(
-                    number: _remainingSeconds,
-                    size: 24,
-                    activeColor: _remainingSeconds < 30
-                        ? Colors.red
-                        : Theme.of(context).colorScheme.primary,
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: _remainingSeconds < 30
+                          ? Colors.red.withAlpha(48)
+                          : Colors.blue.withAlpha(48),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _remainingSeconds < 30
+                            ? Colors.red.withAlpha(128)
+                            : Colors.blue.withAlpha(128),
+                      ),
+                    ),
+                    child: SegmentedNumber(
+                      number: _remainingSeconds,
+                      size: 24,
+                      activeColor: _remainingSeconds < 30
+                          ? Colors.red
+                          : Colors.blue[300]!,
+                      inactiveColor: _remainingSeconds < 30
+                          ? Colors.red.withAlpha(32)
+                          : Colors.blue.withAlpha(32),
+                    ),
                   ),
                 ],
               ),
@@ -441,14 +480,15 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 children: [
-                  const Icon(Icons.star),
+                  const Icon(Icons.star, color: Colors.white70),
                   const SizedBox(width: 8),
                   ScaleTransition(
                     scale: _scoreAnimation,
                     child: SegmentedNumber(
                       number: _currentScore,
                       size: 24,
-                      activeColor: Theme.of(context).colorScheme.primary,
+                      activeColor: Colors.blue[300]!,
+                      inactiveColor: Colors.blue.withAlpha(32),
                     ),
                   ),
                 ],
@@ -532,209 +572,242 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
   Widget _buildQuiz() {
     final question = _questions[_currentQuestionIndex];
 
-    return Column(
-      children: [
-        // Progress indicator
-        LinearProgressIndicator(
-          value: _consecutiveCorrect / 5,
-          backgroundColor:
-              Theme.of(context).colorScheme.surfaceContainerHighest,
-          color: Theme.of(context).colorScheme.primary,
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFF000B2C),
+            const Color(0xFF000B2C).withBlue(80),
+          ],
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: AnimatedBuilder(
-              animation: _questionController,
-              builder: (context, child) => Transform.translate(
-                offset: Offset(_questionSlideAnimation.value, 0),
-                child: Opacity(
-                  opacity: _questionFadeAnimation.value,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Question card
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primaryContainer,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.lightbulb,
-                                          size: 16,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onPrimaryContainer,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Question ${_currentQuestionIndex + 1}',
-                                          style: TextStyle(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onPrimaryContainer,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    'Difficulty: ${question.difficulty}',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                question.question,
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                            ],
-                          ),
-                        ),
+      ),
+      child: Column(
+        children: [
+          // Progress indicator
+          LinearProgressIndicator(
+            value: _consecutiveCorrect / 5,
+            backgroundColor: Colors.white24,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const SizedBox(height: 32),
+                  // Question card
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A1545),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.blue.withAlpha(128),
+                        width: 2,
                       ),
-                      const SizedBox(height: 24),
-                      // Answer options
-                      ...List.generate(
-                        question.options.length,
-                        (index) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: AnimatedScale(
-                            scale: _hasAnswered && _selectedAnswer == index
-                                ? 0.95
-                                : 1.0,
-                            duration: const Duration(milliseconds: 200),
-                            child: FilledButton(
-                              onPressed: _hasAnswered
-                                  ? null
-                                  : () => _checkAnswer(index),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: _getOptionColor(index),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 16,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withAlpha(48),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withAlpha(48),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.blue.withAlpha(128),
                                 ),
                               ),
                               child: Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  Icon(
+                                    Icons.lightbulb,
+                                    size: 16,
+                                    color: Colors.blue[300],
+                                  ),
+                                  const SizedBox(width: 4),
                                   Text(
-                                    String.fromCharCode(65 + index),
-                                    style: const TextStyle(
+                                    'Question ${_currentQuestionIndex + 1}',
+                                    style: TextStyle(
+                                      color: Colors.blue[300],
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 18,
                                     ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Text(
-                                      question.options[index],
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                  ),
-                                  if (_hasAnswered &&
-                                      index == question.correctIndex)
-                                    const Icon(Icons.check_circle),
-                                  if (_hasAnswered &&
-                                      index == _selectedAnswer &&
-                                      !_isCorrect!)
-                                    const Icon(Icons.cancel),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (_hasAnswered)
-                        FadeTransition(
-                          opacity: _feedbackAnimation,
-                          child: Card(
-                            color: _isCorrect!
-                                ? Colors.green.withAlpha(64)
-                                : Colors.red.withAlpha(64),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        _isCorrect!
-                                            ? Icons.check_circle
-                                            : Icons.error,
-                                        color: _isCorrect!
-                                            ? Colors.green
-                                            : Colors.red,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _isCorrect!
-                                            ? 'Correct!'
-                                            : 'Not quite right',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              color: _isCorrect!
-                                                  ? Colors.green
-                                                  : Colors.red,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    question.explanation,
-                                    style:
-                                        Theme.of(context).textTheme.bodyMedium,
                                   ),
                                 ],
                               ),
                             ),
-                          ),
+                            const Spacer(),
+                            Text(
+                              'Difficulty: ${question.difficulty}',
+                              style: TextStyle(
+                                color: Colors.blue[300],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
-                    ],
+                        const SizedBox(height: 24),
+                        Text(
+                          question.question,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  // Answer options
+                  ...List.generate(
+                    question.options.length,
+                    (index) => Padding(
+                      padding: const EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        bottom: 12,
+                      ),
+                      child: _MillionaireButton(
+                        text: question.options[index],
+                        letter: String.fromCharCode(65 + index),
+                        onPressed:
+                            _hasAnswered ? null : () => _checkAnswer(index),
+                        isCorrect:
+                            _hasAnswered && index == question.correctIndex,
+                        isSelected: _hasAnswered && index == _selectedAnswer,
+                        isWrong: _hasAnswered &&
+                            index == _selectedAnswer &&
+                            !_isCorrect!,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
 
-  Color? _getOptionColor(int index) {
-    if (!_hasAnswered) return null;
+class _MillionaireButton extends StatelessWidget {
+  final String text;
+  final String letter;
+  final VoidCallback? onPressed;
+  final bool isCorrect;
+  final bool isSelected;
+  final bool isWrong;
 
-    final currentQuestion = _questions[_currentQuestionIndex];
-    if (index == currentQuestion.correctIndex) {
-      return Colors.green.withAlpha(128);
+  const _MillionaireButton({
+    required this.text,
+    required this.letter,
+    required this.onPressed,
+    this.isCorrect = false,
+    this.isSelected = false,
+    this.isWrong = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Color baseColor = const Color(0xFF0A1545);
+    Color borderColor = Colors.blue.withAlpha(128);
+    Color textColor = Colors.white;
+
+    if (isCorrect) {
+      baseColor = Colors.green.withAlpha(32);
+      borderColor = Colors.green;
+      textColor = Colors.green[100]!;
+    } else if (isWrong) {
+      baseColor = Colors.red.withAlpha(32);
+      borderColor = Colors.red;
+      textColor = Colors.red[100]!;
+    } else if (isSelected) {
+      baseColor = Colors.orange.withAlpha(32);
+      borderColor = Colors.orange;
+      textColor = Colors.orange[100]!;
     }
-    if (index == _selectedAnswer && !_isCorrect!) {
-      return Colors.red.withAlpha(128);
-    }
-    return Theme.of(context).colorScheme.surfaceContainerHighest;
+
+    return Container(
+      height: 56,
+      decoration: BoxDecoration(
+        color: baseColor,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: borderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: borderColor.withAlpha(128),
+            blurRadius: 8,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(28),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Center(
+                    child: Text(
+                      letter,
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (isCorrect)
+                  Icon(Icons.check_circle, color: Colors.green[300])
+                else if (isWrong)
+                  Icon(Icons.cancel, color: Colors.red[300]),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -752,4 +825,176 @@ class TutorQuestion {
     required this.correctIndex,
     required this.difficulty,
   });
+}
+
+class _AnswerOverlay extends StatefulWidget {
+  final bool isCorrect;
+  final String explanation;
+  final VoidCallback onFinished;
+
+  const _AnswerOverlay({
+    required this.isCorrect,
+    required this.explanation,
+    required this.onFinished,
+  });
+
+  @override
+  State<_AnswerOverlay> createState() => _AnswerOverlayState();
+}
+
+class _AnswerOverlayState extends State<_AnswerOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _blurAnimation;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    );
+
+    _blurAnimation = Tween<double>(
+      begin: 0.0,
+      end: 5.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.3, curve: Curves.easeOut),
+    ));
+
+    _slideAnimation = Tween<double>(
+      begin: 100.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.1, 0.5, curve: Curves.easeOutCubic),
+    ));
+
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.1, 0.5, curve: Curves.easeOut),
+    ));
+
+    _controller.forward();
+
+    // Auto-dismiss after 2 seconds
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      _controller.reverse().then((_) {
+        widget.onFinished();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            // Blur effect
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: _blurAnimation.value,
+                  sigmaY: _blurAnimation.value,
+                ),
+                child: Container(
+                  color: Colors.black.withOpacity(0.3 * _fadeAnimation.value),
+                ),
+              ),
+            ),
+            // Content
+            Positioned(
+              left: 32,
+              right: 32,
+              top: MediaQuery.of(context).size.height *
+                  0.3, // Position in the middle section
+              child: Opacity(
+                opacity: _fadeAnimation.value,
+                child: Transform.translate(
+                  offset: Offset(
+                      0, _slideAnimation.value), // Slide down instead of up
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: widget.isCorrect
+                          ? const Color(0xFF0A4515)
+                          : const Color(0xFF450A0A),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: widget.isCorrect
+                            ? Colors.green.withAlpha(128)
+                            : Colors.red.withAlpha(128),
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (widget.isCorrect ? Colors.green : Colors.red)
+                              .withAlpha(32),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              widget.isCorrect
+                                  ? Icons.check_circle
+                                  : Icons.cancel,
+                              color: widget.isCorrect
+                                  ? Colors.green[300]
+                                  : Colors.red[300],
+                              size: 32,
+                            ),
+                            const SizedBox(width: 16),
+                            Text(
+                              widget.isCorrect ? 'Correct!' : 'Not quite right',
+                              style: TextStyle(
+                                color: widget.isCorrect
+                                    ? Colors.green[300]
+                                    : Colors.red[300],
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          widget.explanation,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

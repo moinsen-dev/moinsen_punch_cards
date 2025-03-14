@@ -288,7 +288,7 @@ class _GameCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: borderColor.withOpacity(0.5),
+          color: borderColor.withAlpha(128),
           width: 2,
         ),
       ),
@@ -303,7 +303,7 @@ class _GameCard extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 color,
-                color.withOpacity(0.8),
+                color.withAlpha(224),
               ],
             ),
           ),

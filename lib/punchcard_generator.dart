@@ -48,6 +48,16 @@ class PunchCardProgram {
     this.maxColumns = 80,
     this.maxRows = 12,
   });
+
+  List<String> getOperations() {
+    return instructions.map((instruction) {
+      final rowsStr = instruction.rows.join(', ');
+      final paramsStr = instruction.parameters.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .join(', ');
+      return 'Column ${instruction.column}: ${instruction.operation} (Rows: $rowsStr, $paramsStr)';
+    }).toList();
+  }
 }
 
 /// Service for generating SVG punch cards

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../punchcard_generator.dart';
+import '../services/ai_service.dart';
 import '../services/settings_service.dart';
 import '../widgets/segmented_number.dart';
 
@@ -28,6 +32,10 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
     12, // 12 rows (Y, X, 0-9)
     (i) => List.generate(80, (j) => false), // 80 columns
   );
+
+  String? _aiAnalysis;
+  bool _isAnalyzing = false;
+  bool _isPreviewExpanded = false;
 
   @override
   void dispose() {
@@ -311,6 +319,7 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
       }
       _currentMode = EditorMode.directPunch;
       _aiInputController.clear();
+      _isPreviewExpanded = false;
     });
 
     showDialog(
@@ -473,7 +482,22 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                           });
                         },
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(width: 16),
+                      FilledButton.icon(
+                        onPressed: _isAnalyzing
+                            ? null
+                            : () => _analyzeWithAI(setDialogState),
+                        icon: _isAnalyzing
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.psychology),
+                        label: Text(
+                            _isAnalyzing ? 'Analyzing...' : 'Analyze by AI'),
+                      ),
                       if (_currentMode == EditorMode.instructions)
                         FilledButton.icon(
                           onPressed: _addInstruction,
@@ -487,30 +511,7 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                   child: _buildEditorContent(ScrollController()),
                 ),
                 if (_currentProgram!.instructions.isNotEmpty)
-                  Container(
-                    height: 200,
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Preview',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: PunchCardSvgViewer(
-                              svgString: _svgGenerator.generateSvg(
-                                _currentProgram!,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _buildPreviewPanel(),
               ],
             ),
           ),
@@ -1022,7 +1023,270 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: _buildSavedCardsView());
+    return Scaffold(
+      body: Column(
+        children: [
+          Expanded(
+            child: _buildSavedCardsView(),
+          ),
+          if (_currentProgram != null &&
+              _currentProgram!.instructions.isNotEmpty)
+            _buildPreviewPanel(),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _analyzeWithAI(StateSetter setState) async {
+    setState(() {
+      _isAnalyzing = true;
+    });
+
+    try {
+      // Convert current punch card state to operations
+      final operations = _currentProgram?.getOperations() ?? [];
+
+      // Call AI service for analysis
+      final analysis = await AiService().analyzePunchCard(
+        title: _currentProgram?.title ?? 'Untitled',
+        operations: operations,
+        context: context,
+      );
+
+      // Show analysis in dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => Dialog(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.8,
+                maxHeight: MediaQuery.of(context).size.height * 0.6,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.psychology,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'AI Analysis',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    Expanded(
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          textTheme: Theme.of(context).textTheme.copyWith(
+                                bodyMedium:
+                                    Theme.of(context).textTheme.bodyLarge,
+                              ),
+                        ),
+                        child: Markdown(
+                          data: analysis,
+                          selectable: true,
+                          onTapLink: (text, href, title) async {
+                            if (href != null) {
+                              final uri = Uri.parse(href);
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri,
+                                    mode: LaunchMode.externalApplication);
+                              }
+                            }
+                          },
+                          styleSheet: MarkdownStyleSheet(
+                            h1: Theme.of(context).textTheme.headlineMedium,
+                            h2: Theme.of(context).textTheme.headlineSmall,
+                            h3: Theme.of(context).textTheme.titleLarge,
+                            h4: Theme.of(context).textTheme.titleMedium,
+                            h5: Theme.of(context).textTheme.titleSmall,
+                            h6: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                            p: Theme.of(context).textTheme.bodyLarge,
+                            code: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  fontFamily: 'monospace',
+                                  backgroundColor: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest
+                                      .withAlpha(128),
+                                ),
+                            codeblockDecoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withAlpha(128),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            blockquote:
+                                Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                            blockquoteDecoration: BoxDecoration(
+                              border: Border(
+                                left: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 4,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () {
+                            // Copy to clipboard
+                            Clipboard.setData(ClipboardData(text: analysis));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Analysis copied to clipboard'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.copy),
+                          label: const Text('Copy'),
+                        ),
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      setState(() {
+        _aiAnalysis = analysis;
+      });
+    } catch (e) {
+      setState(() {
+        _aiAnalysis = 'Error during analysis: $e';
+      });
+    } finally {
+      setState(() {
+        _isAnalyzing = false;
+      });
+    }
+  }
+
+  Widget _buildPreviewPanel() {
+    return ExpansionPanelList(
+      elevation: 1,
+      expandedHeaderPadding: EdgeInsets.zero,
+      children: [
+        ExpansionPanel(
+          headerBuilder: (context, isExpanded) => ListTile(
+            leading: const Icon(Icons.preview),
+            title: const Text('Preview'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.open_in_full),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      builder: (context) => DraggableScrollableSheet(
+                        initialChildSize: 0.8,
+                        minChildSize: 0.4,
+                        maxChildSize: 0.95,
+                        expand: false,
+                        builder: (context, scrollController) => Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    'Punch Card Preview',
+                                    style:
+                                        Theme.of(context).textTheme.titleLarge,
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () => Navigator.pop(context),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Divider(),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                controller: scrollController,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: PunchCardSvgViewer(
+                                    svgString: _svgGenerator.generateSvg(
+                                      _currentProgram!,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          body: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: PunchCardSvgViewer(
+                svgString: _svgGenerator.generateSvg(_currentProgram!),
+              ),
+            ),
+          ),
+          isExpanded: _isPreviewExpanded,
+          canTapOnHeader: true,
+        ),
+      ],
+      expansionCallback: (panelIndex, isExpanded) {
+        setState(() {
+          _isPreviewExpanded = !isExpanded;
+        });
+      },
+    );
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'challenge_screen.dart';
+import 'tutor_screen.dart';
 
 class GameScreen extends StatelessWidget {
   const GameScreen({super.key});
@@ -29,6 +30,71 @@ class GameScreen extends StatelessWidget {
   }
 }
 
+class _ZoomPageTransition extends PageRouteBuilder {
+  final Widget page;
+  final Offset centerOffset;
+
+  _ZoomPageTransition({required this.page, required this.centerOffset})
+      : super(
+          transitionDuration: const Duration(milliseconds: 800),
+          pageBuilder: (context, animation, secondaryAnimation) => page,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final screenSize = MediaQuery.of(context).size;
+
+            // Calculate the scale to fill the screen
+            final scale = animation.drive(
+              Tween(
+                begin: 0.9,
+                end: 1.0, // Scale to full screen
+              ).chain(CurveTween(curve: Curves.easeInOutCubic)),
+            );
+
+            // Calculate offset to keep the card centered while zooming
+            final offsetX = animation.drive(
+              Tween(
+                begin: centerOffset.dx,
+                end: 0.0, // End at screen left edge
+              ).chain(CurveTween(curve: Curves.easeInOutCubic)),
+            );
+
+            final offsetY = animation.drive(
+              Tween(
+                begin: centerOffset.dy,
+                end: 0.0, // End at screen top edge
+              ).chain(CurveTween(curve: Curves.easeInOutCubic)),
+            );
+
+            // Fade out other content
+            final fadeOut = animation.drive(
+              Tween(begin: 1.0, end: 0.0)
+                  .chain(CurveTween(curve: const Interval(0.0, 0.3))),
+            );
+
+            return Stack(
+              children: [
+                // Fade out original content
+                Opacity(
+                  opacity: fadeOut.value,
+                  child: const GameScreen(),
+                ),
+                // Zoom in selected card
+                Transform(
+                  transform: Matrix4.identity()
+                    ..translate(offsetX.value, offsetY.value)
+                    ..scale(scale.value),
+                  alignment: Alignment.topLeft, // Change alignment to top-left
+                  child: SizedBox(
+                    width: screenSize.width,
+                    height: screenSize.height,
+                    child: child,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+}
+
 class _GameCards extends StatefulWidget {
   const _GameCards();
 
@@ -50,12 +116,12 @@ class _GameCardsState extends State<_GameCards> with TickerProviderStateMixin {
     _challengeController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _tutorialController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 2400),
       vsync: this,
-    )..repeat(reverse: true);
+    );
 
     _challengeRotation = Tween<double>(
       begin: -0.02,
@@ -74,25 +140,35 @@ class _GameCardsState extends State<_GameCards> with TickerProviderStateMixin {
     ));
 
     _challengeScale = Tween<double>(
-      begin: 1.0,
-      end: 1.05,
+      begin: 0.9,
+      end: 0.945,
     ).animate(CurvedAnimation(
       parent: _challengeController,
       curve: Curves.easeInOut,
     ));
 
     _tutorialScale = Tween<double>(
-      begin: 1.0,
-      end: 1.05,
+      begin: 0.9,
+      end: 0.945,
     ).animate(CurvedAnimation(
       parent: _tutorialController,
       curve: Curves.easeInOut,
     ));
 
-    // Start the animations with a slight delay between them
-    Future.delayed(const Duration(milliseconds: 500), () {
-      _tutorialController.forward();
+    // Start both animations with different delays and make them run forever
+    _challengeController.repeat(reverse: true);
+    Future.delayed(const Duration(milliseconds: 200), () {
+      _tutorialController.repeat(reverse: true);
     });
+  }
+
+  void _navigateWithZoom(BuildContext context, Widget page, Offset cardCenter) {
+    Navigator.of(context).push(
+      _ZoomPageTransition(
+        page: page,
+        centerOffset: cardCenter,
+      ),
+    );
   }
 
   @override
@@ -105,62 +181,79 @@ class _GameCardsState extends State<_GameCards> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Row(
         children: [
           Expanded(
-            child: AnimatedBuilder(
-              animation: _challengeController,
-              builder: (context, child) {
-                return Transform(
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateZ(_challengeRotation.value)
-                    ..scale(_challengeScale.value),
-                  alignment: Alignment.center,
-                  child: child,
-                );
-              },
-              child: _GameCard(
-                title: 'Challenge Mode',
-                description:
-                    'Test your skills with computer-generated programming challenges!',
-                icon: Icons.extension,
-                color: Theme.of(context).colorScheme.primaryContainer,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ChallengeScreen(),
-                    ),
+            child: Transform.scale(
+              scale: 0.9,
+              child: AnimatedBuilder(
+                animation: _challengeController,
+                builder: (context, child) {
+                  return Transform(
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateZ(_challengeRotation.value)
+                      ..scale(_challengeScale.value),
+                    alignment: Alignment.center,
+                    child: child,
                   );
                 },
+                child: _GameCard(
+                  title: 'Challenge Mode',
+                  description:
+                      'Test your skills with computer-generated programming challenges!',
+                  icon: Icons.extension,
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  onTap: () {
+                    final RenderBox card =
+                        context.findRenderObject() as RenderBox;
+                    final Offset cardCenter =
+                        card.localToGlobal(card.size.center(Offset.zero));
+                    _navigateWithZoom(
+                      context,
+                      const ChallengeScreen(),
+                      cardCenter,
+                    );
+                  },
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 24),
           Expanded(
-            child: AnimatedBuilder(
-              animation: _tutorialController,
-              builder: (context, child) {
-                return Transform(
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateZ(_tutorialRotation.value)
-                    ..scale(_tutorialScale.value),
-                  alignment: Alignment.center,
-                  child: child,
-                );
-              },
-              child: _GameCard(
-                title: 'Tutorial Mode',
-                description:
-                    'Learn the basics of punch card programming with guided lessons!',
-                icon: Icons.school,
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                onTap: () {
-                  // TODO: Navigate to tutorial screen
+            child: Transform.scale(
+              scale: 0.9,
+              child: AnimatedBuilder(
+                animation: _tutorialController,
+                builder: (context, child) {
+                  return Transform(
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateZ(_tutorialRotation.value)
+                      ..scale(_tutorialScale.value),
+                    alignment: Alignment.center,
+                    child: child,
+                  );
                 },
+                child: _GameCard(
+                  title: 'Tutorial Mode',
+                  description:
+                      'Learn the basics of punch card programming with guided lessons!',
+                  icon: Icons.school,
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  onTap: () {
+                    final RenderBox card =
+                        context.findRenderObject() as RenderBox;
+                    final Offset cardCenter =
+                        card.localToGlobal(card.size.center(Offset.zero));
+                    _navigateWithZoom(
+                      context,
+                      const TutorScreen(),
+                      cardCenter,
+                    );
+                  },
+                ),
               ),
             ),
           ),

@@ -4,12 +4,10 @@ import '../services/settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final SettingsService settingsService;
-  final Function(ThemeMode) onThemeChanged;
 
   const SettingsScreen({
     super.key,
     required this.settingsService,
-    required this.onThemeChanged,
   });
 
   @override
@@ -41,7 +39,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_formKey.currentState!.validate()) {
       await widget.settingsService.setGeminiApiKey(_apiKeyController.text);
       await widget.settingsService.setThemeMode(_selectedThemeMode);
-      widget.onThemeChanged(_selectedThemeMode);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Settings saved successfully')),
@@ -72,31 +69,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 16),
-                      SegmentedButton<ThemeMode>(
-                        segments: const [
-                          ButtonSegment<ThemeMode>(
-                            value: ThemeMode.system,
-                            label: Text('System'),
-                            icon: Icon(Icons.brightness_auto),
-                          ),
-                          ButtonSegment<ThemeMode>(
-                            value: ThemeMode.light,
-                            label: Text('Light'),
-                            icon: Icon(Icons.brightness_5),
-                          ),
-                          ButtonSegment<ThemeMode>(
-                            value: ThemeMode.dark,
-                            label: Text('Dark'),
-                            icon: Icon(Icons.brightness_4),
-                          ),
-                        ],
-                        selected: {_selectedThemeMode},
-                        onSelectionChanged: (Set<ThemeMode> newSelection) {
-                          setState(() {
-                            _selectedThemeMode = newSelection.first;
-                          });
-                          widget.onThemeChanged(_selectedThemeMode);
-                        },
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<ThemeMode>(
+                          segments: const [
+                            ButtonSegment<ThemeMode>(
+                              value: ThemeMode.system,
+                              label: Text('System'),
+                              icon: Icon(Icons.brightness_auto),
+                            ),
+                            ButtonSegment<ThemeMode>(
+                              value: ThemeMode.light,
+                              label: Text('Light'),
+                              icon: Icon(Icons.brightness_5),
+                            ),
+                            ButtonSegment<ThemeMode>(
+                              value: ThemeMode.dark,
+                              label: Text('Dark'),
+                              icon: Icon(Icons.brightness_4),
+                            ),
+                          ],
+                          selected: {_selectedThemeMode},
+                          onSelectionChanged:
+                              (Set<ThemeMode> newSelection) async {
+                            setState(() {
+                              _selectedThemeMode = newSelection.first;
+                            });
+                            // Save the theme mode immediately
+                            await widget.settingsService
+                                .setThemeMode(_selectedThemeMode);
+                          },
+                        ),
                       ),
                     ],
                   ),

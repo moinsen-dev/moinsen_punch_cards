@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class SettingsService {
+class SettingsService extends ChangeNotifier {
   static const String _geminiApiKeyKey = 'gemini_api_key';
   static const String _themeModeKey = 'theme_mode';
 
@@ -20,6 +20,7 @@ class SettingsService {
 
   Future<void> setGeminiApiKey(String apiKey) async {
     await _prefs.setString(_geminiApiKeyKey, apiKey);
+    notifyListeners();
   }
 
   ThemeMode getThemeMode() {
@@ -32,5 +33,6 @@ class SettingsService {
 
   Future<void> setThemeMode(ThemeMode mode) async {
     await _prefs.setString(_themeModeKey, mode.toString());
+    notifyListeners();
   }
 }

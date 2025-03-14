@@ -2,11 +2,14 @@
 // A Flutter application that processes punch card images and executes their instructions
 
 import 'package:flutter/material.dart';
-import 'package:moinsen_punch_cards/screens/tutor_screen.dart';
-import 'package:moinsen_punch_cards/screens/welcome_screen.dart';
+import 'package:provider/provider.dart';
 
+import 'providers/challenge_provider.dart';
+import 'providers/settings_provider.dart';
+import 'screens/challenge_screen.dart';
 import 'screens/punch_card_editor.dart';
 import 'screens/settings_screen.dart';
+import 'screens/welcome_screen.dart';
 import 'services/settings_service.dart';
 
 // =============================================================================
@@ -14,45 +17,45 @@ import 'services/settings_service.dart';
 // =============================================================================
 
 /// Main application widget
-class PunchCardApp extends StatelessWidget {
-  const PunchCardApp({
-    super.key,
-    required this.settingsService,
-  });
-
-  final SettingsService settingsService;
+class App extends StatelessWidget {
+  const App({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      restorationScopeId: 'app',
-      onGenerateTitle: (BuildContext context) => 'Punch Card App',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.blue,
+    return SettingsProvider(
+      child: ChallengeProvider(
+        child: Builder(
+          builder: (context) {
+            return MaterialApp(
+              title: 'Moinsen Punch Cards',
+              theme: ThemeData(
+                colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+                useMaterial3: true,
+              ),
+              darkTheme: ThemeData(
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: Colors.deepPurple,
+                  brightness: Brightness.dark,
+                ),
+                useMaterial3: true,
+              ),
+              themeMode: context.watch<SettingsService>().getThemeMode(),
+              initialRoute: '/',
+              routes: {
+                '/': (context) => const WelcomeScreen(),
+                '/main': (context) => const MainScreen(),
+              },
+            );
+          },
+        ),
       ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.blue,
-        brightness: Brightness.dark,
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const WelcomeScreen(),
-        '/main': (context) => MainScreen(settingsService: settingsService),
-      },
     );
   }
 }
 
 /// Main screen with bottom navigation
 class MainScreen extends StatefulWidget {
-  final SettingsService settingsService;
-
-  const MainScreen({
-    super.key,
-    required this.settingsService,
-  });
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -60,50 +63,37 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  ThemeMode _themeMode = ThemeMode.system;
-
-  @override
-  void initState() {
-    super.initState();
-    _themeMode = widget.settingsService.getThemeMode();
-  }
-
-  void _handleThemeChanged(ThemeMode mode) {
-    setState(() {
-      _themeMode = mode;
-    });
-    widget.settingsService.setThemeMode(mode);
-  }
 
   @override
   Widget build(BuildContext context) {
+    final settingsService = Provider.of<SettingsService>(context);
+
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
         children: [
-          PunchCardEditor(settingsService: widget.settingsService),
-          const TutorScreen(),
+          PunchCardEditor(settingsService: settingsService),
+          const ChallengeScreen(),
           SettingsScreen(
-            settingsService: widget.settingsService,
-            onThemeChanged: _handleThemeChanged,
+            settingsService: settingsService,
           ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        onDestinationSelected: (int index) {
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
-        selectedIndex: _selectedIndex,
-        destinations: const <Widget>[
+        destinations: const [
           NavigationDestination(
             icon: Icon(Icons.grid_4x4),
-            label: 'Cards',
+            label: 'Editor',
           ),
           NavigationDestination(
-            icon: Icon(Icons.school),
-            label: 'Tutor',
+            icon: Icon(Icons.extension),
+            label: 'Challenge',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings),

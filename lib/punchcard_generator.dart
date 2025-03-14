@@ -13,7 +13,6 @@ import 'package:pasteboard/pasteboard.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import 'screens/settings_screen.dart';
 import 'services/settings_service.dart';
 
 /// Domain model for a punch card instruction
@@ -585,17 +584,6 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
     return PunchCardProgram(title: json['title'], instructions: instructions);
   }
 
-  void _openSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => SettingsScreen(
-          settingsService: _settingsService,
-          onThemeChanged: widget.onThemeChanged ?? (_) {},
-        ),
-      ),
-    );
-  }
-
   Future<void> _copyToClipboard() async {
     if (_generatedSvg == null) return;
 
@@ -720,10 +708,6 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
               onPressed: _saveSvgFile,
             ),
           ],
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: _openSettings,
-          ),
         ],
       ),
       body: Padding(

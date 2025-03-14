@@ -328,13 +328,106 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                 program != null ? 'Edit Punch Card' : 'New Punch Card',
               ),
               actions: [
+                // Clear Card button
+                TextButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Clear Card'),
+                        content: const Text(
+                          'Are you sure you want to clear this card? '
+                          'This will remove all punched holes and instructions.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          FilledButton(
+                            onPressed: () {
+                              Navigator.pop(context); // Close dialog
+                              setDialogState(() {
+                                // Reset punched holes
+                                for (var row in _punchedHoles) {
+                                  row.fillRange(0, row.length, false);
+                                }
+                                // Reset instructions
+                                _currentProgram = PunchCardProgram(
+                                  title: _titleController.text,
+                                  instructions: [],
+                                );
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Card cleared')),
+                              );
+                            },
+                            style: FilledButton.styleFrom(
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.error,
+                            ),
+                            child: const Text('Clear'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.clear_all),
+                  label: const Text('Clear'),
+                ),
+                const SizedBox(width: 8),
+                // Delete Card button (only show for existing cards)
+                if (program != null) ...[
+                  TextButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Delete Card'),
+                          content: Text(
+                            'Are you sure you want to delete "${program.title}"? '
+                            'This action cannot be undone.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              onPressed: () {
+                                Navigator.pop(context); // Close dialog
+                                final index = _savedPrograms.indexOf(program);
+                                if (index != -1) {
+                                  Navigator.pop(context); // Close editor
+                                  _deleteSavedProgram(index);
+                                }
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.error,
+                              ),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Delete'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                // Save Card button
                 FilledButton.icon(
                   onPressed: () {
                     _saveProgram();
                     Navigator.pop(context);
                   },
                   icon: const Icon(Icons.save),
-                  label: const Text('Save Card'),
+                  label: const Text('Save'),
                 ),
                 const SizedBox(width: 16),
               ],
@@ -460,10 +553,7 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
           },
         );
       case EditorMode.directPunch:
-        return SingleChildScrollView(
-          controller: scrollController,
-          child: _buildDirectPunchEditor(),
-        );
+        return _buildDirectPunchEditor();
       case EditorMode.aiText:
         return SingleChildScrollView(
           controller: scrollController,
@@ -480,43 +570,68 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
     const double holeSize = 24.0;
     const double rowHeight = holeSize + 8.0; // 4px padding top and bottom
     const double headerHeight = 32.0;
+    const double labelWidth = 50.0;
+    const double totalWidth = 80 * holeSize; // Width for all 80 columns
 
-    return StatefulBuilder(
-      builder: (context, setPunchState) => Container(
-        color: Colors.yellow[50],
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: 2000, // Fixed width to ensure all 80 columns are visible
+    return Container(
+      color: Colors.yellow[50],
+      child: Row(
+        children: [
+          // Fixed row labels column
+          SizedBox(
+            width: labelWidth,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
               children: [
-                // Column numbers header
-                SizedBox(
+                // Fixed "Row" header
+                Container(
                   height: headerHeight,
-                  child: Row(
-                    children: [
-                      // Row header label space
-                      Container(
-                        width: 50,
-                        color: Colors.yellow[200],
-                        alignment: Alignment.center,
-                        child: const Text(
-                          'Row',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
+                  color: Colors.yellow[200],
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Row',
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Colors.black26),
+                // Fixed row labels
+                ...List.generate(
+                  12,
+                  (row) => Container(
+                    height: rowHeight,
+                    color: Colors.yellow[200],
+                    alignment: Alignment.center,
+                    child: Text(
+                      row <= 1 ? (row == 0 ? 'Y' : 'X') : '${row - 2}',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
-                      // Column numbers
-                      Expanded(
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: 80,
-                          itemBuilder: (context, col) => SizedBox(
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Scrollable content area
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: totalWidth,
+                child: Column(
+                  children: [
+                    // Column numbers header
+                    SizedBox(
+                      height: headerHeight,
+                      child: Row(
+                        children: List.generate(
+                          80,
+                          (col) => SizedBox(
                             width: holeSize,
                             child: Center(
                               child: Text(
@@ -531,93 +646,49 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1, color: Colors.black26),
-                // Punch grid
-                SizedBox(
-                  height: 12 * rowHeight, // Exact height for 12 rows
-                  child: ListView.builder(
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: 12,
-                    itemBuilder: (context, row) {
-                      String rowLabel =
-                          row <= 1 ? (row == 0 ? 'Y' : 'X') : '${row - 2}';
-                      return Container(
-                        height: rowHeight,
-                        decoration: BoxDecoration(
-                          color: row % 2 == 0
-                              ? Colors.yellow[50]
-                              : Colors.yellow[100],
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Colors.yellow[200]!,
-                              width: 1,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            // Row label
-                            Container(
-                              width: 50,
-                              color: Colors.yellow[200],
-                              alignment: Alignment.center,
-                              child: Text(
-                                rowLabel,
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
+                    ),
+                    const Divider(height: 1, color: Colors.black26),
+                    // Punch holes grid
+                    ...List.generate(
+                      12,
+                      (row) => StatefulBuilder(
+                        builder: (context, setPunchState) => Container(
+                          height: rowHeight,
+                          decoration: BoxDecoration(
+                            color: row % 2 == 0
+                                ? Colors.yellow[50]
+                                : Colors.yellow[100],
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.yellow[200]!,
+                                width: 1,
                               ),
                             ),
-                            // Holes
-                            Expanded(
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: 80,
-                                itemBuilder: (context, col) => SizedBox(
-                                  width: holeSize,
-                                  height: holeSize,
-                                  child: Center(
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        setPunchState(() {
-                                          _toggleHole(row, col);
-                                        });
-                                      },
-                                      child: Container(
-                                        width: holeSize - 8,
-                                        height: holeSize - 8,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: _punchedHoles[row][col]
-                                              ? Colors.black87
-                                              : Colors.white,
-                                          border: Border.all(
-                                            color: Colors.black54,
-                                            width: 1,
-                                          ),
-                                          boxShadow: _punchedHoles[row][col]
-                                              ? [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withAlpha(128),
-                                                    blurRadius: 2,
-                                                    offset: const Offset(0, 1),
-                                                  ),
-                                                ]
-                                              : [
-                                                  BoxShadow(
-                                                    color: Colors.black
-                                                        .withAlpha(641),
-                                                    blurRadius: 1,
-                                                    offset: const Offset(0, 1),
-                                                  ),
-                                                ],
+                          ),
+                          child: Row(
+                            children: List.generate(
+                              80,
+                              (col) => SizedBox(
+                                width: holeSize,
+                                height: holeSize,
+                                child: Center(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setPunchState(() {
+                                        _toggleHole(row, col);
+                                      });
+                                    },
+                                    child: Container(
+                                      width: holeSize - 8,
+                                      height: holeSize - 8,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: _punchedHoles[row][col]
+                                            ? Colors.black87
+                                            : Colors.white,
+                                        border: Border.all(
+                                          color: Colors.black54,
+                                          width: 1,
                                         ),
                                       ),
                                     ),
@@ -625,16 +696,16 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                                 ),
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -707,13 +778,59 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                       return Dismissible(
                         key: ValueKey(program),
                         background: Container(
-                          color: Colors.red,
+                          color: Theme.of(context).colorScheme.error,
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 16.0),
+                          child:
+                              const Icon(Icons.copy_all, color: Colors.white),
+                        ),
+                        secondaryBackground: Container(
+                          color: Theme.of(context).colorScheme.error,
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 16.0),
                           child: const Icon(Icons.delete, color: Colors.white),
                         ),
-                        direction: DismissDirection.endToStart,
-                        onDismissed: (direction) => _deleteSavedProgram(index),
+                        confirmDismiss: (direction) async {
+                          if (direction == DismissDirection.endToStart) {
+                            // Delete action
+                            return await showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Delete Card'),
+                                content: Text(
+                                  'Are you sure you want to delete "${program.title}"? '
+                                  'This action cannot be undone.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        Navigator.pop(context, true),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor:
+                                          Theme.of(context).colorScheme.error,
+                                    ),
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else {
+                            // Duplicate action
+                            _duplicateProgram(program);
+                            return false;
+                          }
+                        },
+                        direction: DismissDirection.horizontal,
+                        onDismissed: (direction) {
+                          if (direction == DismissDirection.endToStart) {
+                            _deleteSavedProgram(index);
+                          }
+                        },
                         child: StatefulBuilder(
                           builder: (context, setCardState) {
                             bool isSpinning = false;
@@ -730,236 +847,23 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                                 borderRadius: BorderRadius.circular(8),
                                 child: SizedBox(
                                   width: MediaQuery.of(context).size.width - 32,
-                                  child: Card(
-                                    margin: EdgeInsets.zero,
-                                    elevation: 0,
-                                    clipBehavior: Clip.antiAlias,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .outline,
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(16.0),
-                                            child: Row(
-                                              children: [
-                                                // Card number
-                                                Container(
-                                                  margin: const EdgeInsets.only(
-                                                      right: 16),
-                                                  child: SegmentedNumber(
-                                                    number: index + 1,
-                                                    size: 32,
-                                                    isSpinning: true,
-                                                    activeColor:
-                                                        Theme.of(context)
-                                                            .colorScheme
-                                                            .primary,
-                                                    inactiveColor:
-                                                        Theme.of(context)
-                                                            .colorScheme
-                                                            .primary
-                                                            .withAlpha(128),
-                                                  ),
-                                                ),
-                                                // Mini preview
-                                                Container(
-                                                  width: 100,
-                                                  height: 60,
-                                                  decoration: BoxDecoration(
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .surface,
-                                                    border: Border.all(
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .outline,
-                                                      width: 1,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4),
-                                                  ),
-                                                  child: ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4),
-                                                    child: PunchCardSvgViewer(
-                                                      svgString: _svgGenerator
-                                                          .generateSvg(program),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 16),
-                                                // Card info
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        program.title,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .titleMedium
-                                                            ?.copyWith(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                            ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        '${program.instructions.length} instructions',
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodyMedium
-                                                            ?.copyWith(
-                                                              color: Theme.of(
-                                                                      context)
-                                                                  .colorScheme
-                                                                  .onSurfaceVariant,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                                  child: _buildCardContent(
+                                    context,
+                                    program,
+                                    index,
+                                    isSpinning: true,
+                                    isDragging: true,
                                   ),
                                 ),
                               ),
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 16.0),
-                                child: Card(
-                                  margin: EdgeInsets.zero,
-                                  elevation: 2,
-                                  clipBehavior: Clip.antiAlias,
-                                  child: InkWell(
-                                    onTap: () => _showEditorBottomSheet(
-                                      context,
-                                      program: program,
-                                    ),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .outline,
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(16.0),
-                                            child: Row(
-                                              children: [
-                                                // Card number
-                                                Container(
-                                                  margin: const EdgeInsets.only(
-                                                      right: 16),
-                                                  child: SegmentedNumber(
-                                                    number: index + 1,
-                                                    size: 32,
-                                                    isSpinning: isSpinning,
-                                                    activeColor:
-                                                        Theme.of(context)
-                                                            .colorScheme
-                                                            .primary,
-                                                    inactiveColor:
-                                                        Theme.of(context)
-                                                            .colorScheme
-                                                            .primary
-                                                            .withAlpha(128),
-                                                  ),
-                                                ),
-                                                // Mini preview
-                                                Container(
-                                                  width: 100,
-                                                  height: 60,
-                                                  decoration: BoxDecoration(
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .surface,
-                                                    border: Border.all(
-                                                      color: Theme.of(context)
-                                                          .colorScheme
-                                                          .outline,
-                                                      width: 1,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4),
-                                                  ),
-                                                  child: ClipRRect(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            4),
-                                                    child: PunchCardSvgViewer(
-                                                      svgString: _svgGenerator
-                                                          .generateSvg(program),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 16),
-                                                // Card info
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        program.title,
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .titleMedium
-                                                            ?.copyWith(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
-                                                            ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Text(
-                                                        '${program.instructions.length} instructions',
-                                                        style: Theme.of(context)
-                                                            .textTheme
-                                                            .bodyMedium
-                                                            ?.copyWith(
-                                                              color: Theme.of(
-                                                                      context)
-                                                                  .colorScheme
-                                                                  .onSurfaceVariant,
-                                                            ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                                child: _buildCardContent(
+                                  context,
+                                  program,
+                                  index,
+                                  isSpinning: isSpinning,
+                                  isDragging: false,
                                 ),
                               ),
                             );
@@ -970,6 +874,148 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCardContent(
+    BuildContext context,
+    PunchCardProgram program,
+    int index, {
+    bool isSpinning = false,
+    bool isDragging = false,
+  }) {
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: isDragging ? 0 : 2,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showEditorBottomSheet(context, program: program),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline,
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    // Card number
+                    Container(
+                      margin: const EdgeInsets.only(right: 16),
+                      child: SegmentedNumber(
+                        number: index + 1,
+                        size: 32,
+                        isSpinning: isSpinning,
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        inactiveColor: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withAlpha(128),
+                      ),
+                    ),
+                    // Mini preview
+                    Container(
+                      width: 100,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.outline,
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: PunchCardSvgViewer(
+                          svgString: _svgGenerator.generateSvg(program),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Card info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            program.title,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${program.instructions.length} instructions',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Action buttons
+                    if (!isDragging) ...[
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () =>
+                            _showEditorBottomSheet(context, program: program),
+                        tooltip: 'Edit Card',
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Delete Card'),
+                              content: Text(
+                                'Are you sure you want to delete "${program.title}"? '
+                                'This action cannot be undone.',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Cancel'),
+                                ),
+                                FilledButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _deleteSavedProgram(index);
+                                  },
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor:
+                                        Theme.of(context).colorScheme.error,
+                                  ),
+                                  child: const Text('Delete'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        tooltip: 'Delete Card',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

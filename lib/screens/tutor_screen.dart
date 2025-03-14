@@ -231,8 +231,7 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
     _timerController = AnimationController(
       duration: const Duration(seconds: 1),
       vsync: this,
-    );
-    _timerController.addListener(_updateTimer);
+    )..addListener(_updateTimer);
 
     _questionController.forward();
   }
@@ -268,11 +267,17 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
       _hasAnswered = false;
       _selectedAnswer = null;
       _isCorrect = null;
+      _remainingSeconds = 180; // Reset to 3 minutes
     });
-    _timerController.forward(from: 0);
+
+    // Start the timer immediately
+    Future.microtask(() {
+      _timerController.forward(from: 0);
+    });
   }
 
   void _showTimeUp() {
+    _timerController.stop(); // Stop the timer
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -664,8 +669,8 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
                           opacity: _feedbackAnimation,
                           child: Card(
                             color: _isCorrect!
-                                ? Colors.green.withOpacity(0.1)
-                                : Colors.red.withOpacity(0.1),
+                                ? Colors.green.withAlpha(64)
+                                : Colors.red.withAlpha(64),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Column(
@@ -724,10 +729,10 @@ Ready to test your knowledge? Click 'Start Quiz' when you're ready!
 
     final currentQuestion = _questions[_currentQuestionIndex];
     if (index == currentQuestion.correctIndex) {
-      return Colors.green.withOpacity(0.2);
+      return Colors.green.withAlpha(128);
     }
     if (index == _selectedAnswer && !_isCorrect!) {
-      return Colors.red.withOpacity(0.2);
+      return Colors.red.withAlpha(128);
     }
     return Theme.of(context).colorScheme.surfaceContainerHighest;
   }

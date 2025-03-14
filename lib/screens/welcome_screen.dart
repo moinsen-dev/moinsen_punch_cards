@@ -186,19 +186,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                        Theme.of(context)
-                            .colorScheme
-                            .secondary
-                            .withOpacity(0.05),
+                        Theme.of(context).colorScheme.primary.withAlpha(32),
+                        Theme.of(context).colorScheme.secondary.withAlpha(32),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.1),
+                      color:
+                          Theme.of(context).colorScheme.primary.withAlpha(64),
                       width: 1,
                     ),
                   ),
@@ -220,7 +215,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     color: Theme.of(context)
                                         .colorScheme
                                         .tertiary
-                                        .withOpacity(0.2),
+                                        .withAlpha(128),
                                     blurRadius: 8,
                                     spreadRadius: 0,
                                     offset: const Offset(0, 2),

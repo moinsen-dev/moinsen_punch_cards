@@ -115,7 +115,7 @@ class _SegmentedNumberState extends State<SegmentedNumber>
 
     final activeColor =
         widget.activeColor ?? Theme.of(context).colorScheme.primary;
-    final inactiveColor = widget.inactiveColor ?? activeColor.withOpacity(0.2);
+    final inactiveColor = widget.inactiveColor ?? activeColor.withAlpha(128);
 
     return Container(
       width: widget.size * 2.5,

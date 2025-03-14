@@ -605,7 +605,7 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                                               ? [
                                                   BoxShadow(
                                                     color: Colors.black
-                                                        .withOpacity(0.3),
+                                                        .withAlpha(128),
                                                     blurRadius: 2,
                                                     offset: const Offset(0, 1),
                                                   ),
@@ -613,7 +613,7 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                                               : [
                                                   BoxShadow(
                                                     color: Colors.black
-                                                        .withOpacity(0.1),
+                                                        .withAlpha(641),
                                                     blurRadius: 1,
                                                     offset: const Offset(0, 1),
                                                   ),
@@ -768,7 +768,7 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                                                         Theme.of(context)
                                                             .colorScheme
                                                             .primary
-                                                            .withOpacity(0.2),
+                                                            .withAlpha(128),
                                                   ),
                                                 ),
                                                 // Mini preview
@@ -887,7 +887,7 @@ class _PunchCardEditorState extends State<PunchCardEditor> {
                                                         Theme.of(context)
                                                             .colorScheme
                                                             .primary
-                                                            .withOpacity(0.2),
+                                                            .withAlpha(128),
                                                   ),
                                                 ),
                                                 // Mini preview

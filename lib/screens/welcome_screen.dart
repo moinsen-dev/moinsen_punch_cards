@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/info_carousel.dart';
+
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
@@ -86,7 +88,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           ),
                           const SizedBox(height: 24),
                           Text(
-                            'Welcome to CamPak',
+                            'Welcome to MoinsenPunchcard',
                             style: Theme.of(context).textTheme.headlineLarge
                                 ?.copyWith(fontWeight: FontWeight.bold),
                             textAlign: TextAlign.center,
@@ -107,9 +109,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             style: Theme.of(context).textTheme.bodyLarge,
                             textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 48),
-                          _buildFeatureCard(context),
-                          const SizedBox(height: 48),
+                          const SizedBox(height: 32),
+                          const InfoCarousel(),
+                          const SizedBox(height: 32),
                           _buildGetStartedButton(context),
                         ],
                       ),
@@ -129,41 +131,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildFeatureCard(BuildContext context) {
-    return Card(
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text('Features', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildFeatureItem(icon: Icons.input, label: 'Process Cards'),
-                _buildFeatureItem(
-                  icon: Icons.add_circle_outline,
-                  label: 'Generate Cards',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeatureItem({required IconData icon, required String label}) {
-    return Column(
-      children: [
-        Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(height: 8),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-      ],
     );
   }
 

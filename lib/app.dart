@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'punchcard.dart';
 import 'punchcard_generator.dart';
+import 'screens/punch_card_editor.dart';
 import 'screens/settings_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'services/settings_service.dart';
@@ -33,7 +34,7 @@ class _PunchCardAppState extends State<PunchCardApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CamPak',
+      title: 'MoinsenPunchcard',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blue,
@@ -83,11 +84,7 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
   late SettingsService _settingsService;
-
-  static final List<Widget> _pages = [
-    const HomePage(), // Process Card page
-    const PunchCardGeneratorApp(), // Generate Card page
-  ];
+  List<Widget>? _pages; // Change to nullable type
 
   @override
   void initState() {
@@ -103,7 +100,13 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
 
   Future<void> _initializeSettings() async {
     _settingsService = await SettingsService.create();
-    setState(() {});
+    setState(() {
+      _pages = [
+        const HomePage(), // Process Card page
+        const PunchCardGeneratorApp(), // Generate Card page
+        PunchCardEditor(settingsService: _settingsService), // Editor page
+      ];
+    });
   }
 
   @override
@@ -123,7 +126,7 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('CamPak Features'),
+            title: const Text('MoinsenPunchcard Features'),
             content: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,6 +150,18 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
                       'SVG and PNG export options',
                       'Copy to clipboard functionality',
                       'Save and share capabilities',
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildHelpSection(
+                    'Edit Cards',
+                    'Create and edit punch cards manually:',
+                    [
+                      'Visual punch card editor',
+                      'Add/edit/delete instructions',
+                      'Live preview of the punch card',
+                      'Save and manage multiple cards',
+                      'Support for all punch card operations',
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -197,7 +212,7 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('CamPak'),
+        title: const Text('MoinsenPunchcard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -219,10 +234,13 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
           ),
         ],
       ),
-      body: FadeTransition(
-        opacity: _fadeAnimation,
-        child: _pages[_selectedIndex],
-      ),
+      body:
+          _pages == null
+              ? const Center(child: CircularProgressIndicator())
+              : FadeTransition(
+                opacity: _fadeAnimation,
+                child: _pages![_selectedIndex],
+              ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onItemTapped,
@@ -231,6 +249,10 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
           NavigationDestination(
             icon: Icon(Icons.add_circle_outline),
             label: 'Generate Card',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.edit_document),
+            label: 'Edit Card',
           ),
         ],
       ),
@@ -279,7 +301,7 @@ class _PunchCardMainScreenState extends State<PunchCardMainScreen>
             const Divider(),
             AboutListTile(
               icon: const Icon(Icons.info),
-              applicationName: 'CamPak',
+              applicationName: 'MoinsenPunchcard',
               applicationVersion: '1.0.0',
               applicationLegalese: '©2024 Moinsen',
               child: const Text('About'),

@@ -1,12 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
+import 'package:pasteboard/pasteboard.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+import 'screens/settings_screen.dart';
+import 'services/settings_service.dart';
 
 /// Domain model for a punch card instruction
 class PunchCardInstruction {
@@ -430,77 +438,338 @@ class PunchCardGeneratorApp extends StatefulWidget {
   const PunchCardGeneratorApp({super.key});
 
   @override
-  _PunchCardGeneratorAppState createState() => _PunchCardGeneratorAppState();
+  State<PunchCardGeneratorApp> createState() => _PunchCardGeneratorAppState();
 }
 
 class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
   final TextEditingController _textController = TextEditingController();
-  String? _svgString;
-  bool _isLoading = false;
+  bool _isGenerating = false;
   String? _errorMessage;
-
-  final svgGenerator = PunchCardSvgGenerator();
-  late PunchCardProgramGenerator programGenerator;
+  late SettingsService _settingsService;
+  String? _generatedSvg;
+  String? _savedFilePath;
+  final GlobalKey _punchCardKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    // In a real app, get this from secure storage or environment
-    const apiKey = 'YOUR_OPENAI_API_KEY';
-    programGenerator = PunchCardProgramGenerator(openAiApiKey: apiKey);
+    _initializeSettings();
+  }
+
+  Future<void> _initializeSettings() async {
+    _settingsService = await SettingsService.create();
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
   }
 
   Future<void> _generatePunchCard() async {
-    final text = _textController.text;
-    if (text.isEmpty) return;
+    if (_textController.text.isEmpty) return;
+
+    final apiKey = _settingsService.getGeminiApiKey();
+    if (apiKey == null || apiKey.isEmpty) {
+      setState(() {
+        _errorMessage = 'Please set your Gemini API key in settings first';
+      });
+      return;
+    }
 
     setState(() {
-      _isLoading = true;
+      _isGenerating = true;
       _errorMessage = null;
+      _generatedSvg = null;
     });
 
     try {
-      // For demo purposes, use the manual Hello World program
-      // In a real app, use: final program = await programGenerator.generateProgramFromText(text);
-      final program = createHelloWorldProgram();
-      final svg = svgGenerator.generateSvg(program);
+      // Initialize Gemini with Flash-Lite model
+      final model = GenerativeModel(
+        model: 'gemini-2.0-flash-lite',
+        apiKey: apiKey,
+      );
+
+      // Create the prompt for generating punch card instructions
+      final prompt = '''
+      Convert the following text into a punch card program using the format:
+      Each instruction should have:
+      - A column number (1-80)
+      - Row numbers to punch (0-11, where 0=Y row, 1=X row, 2-11=rows 0-9)
+      - Operation name
+      - Any relevant parameters
+
+      Important rules:
+      1. Each character should use 2 columns: one for storing the character and one for the print operation
+      2. Use rows Y (0) for PRINT operations
+      3. Use rows X (1) for LOAD operations
+      4. Use rows 0-9 (2-11) for data and parameters
+      5. Keep track of column positions to avoid overlap
+
+      Text to convert: "${_textController.text}"
+
+      Return the response in the following JSON format:
+      {
+        "title": "Program title",
+        "instructions": [
+          {
+            "column": column_number,
+            "rows": [row_numbers],
+            "operation": "operation_name",
+            "parameters": {"param_name": param_value}
+          }
+        ]
+      }
+      ''';
+
+      // Generate response using Gemini
+      final content = await model.generateContent([Content.text(prompt)]);
+      final response = content.text;
+
+      if (response == null) {
+        throw Exception('Failed to generate response');
+      }
+
+      // Parse the JSON response
+      final programJson = _extractJsonFromText(response);
+      final program = _parseProgramJson(programJson);
+
+      // Generate SVG
+      final generator = PunchCardSvgGenerator();
+      final svg = generator.generateSvg(program);
 
       setState(() {
-        _svgString = svg;
-        _isLoading = false;
+        _generatedSvg = svg;
+        _isGenerating = false;
       });
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error: $e';
-        _isLoading = false;
+        _errorMessage = 'Error generating punch card: $e';
+        _isGenerating = false;
       });
+    }
+  }
+
+  Map<String, dynamic> _extractJsonFromText(String text) {
+    final jsonRegExp = RegExp(r'{[\s\S]*}');
+    final match = jsonRegExp.firstMatch(text);
+
+    if (match != null) {
+      final jsonStr = match.group(0);
+      try {
+        return jsonDecode(jsonStr!);
+      } catch (e) {
+        throw Exception('Failed to parse JSON from response: $e');
+      }
+    } else {
+      throw Exception('No JSON found in response');
+    }
+  }
+
+  PunchCardProgram _parseProgramJson(Map<String, dynamic> json) {
+    final instructions = <PunchCardInstruction>[];
+
+    for (final instructionJson in json['instructions']) {
+      instructions.add(
+        PunchCardInstruction(
+          column: instructionJson['column'],
+          rows: List<int>.from(instructionJson['rows']),
+          operation: instructionJson['operation'],
+          parameters: instructionJson['parameters'],
+        ),
+      );
+    }
+
+    return PunchCardProgram(title: json['title'], instructions: instructions);
+  }
+
+  void _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => SettingsScreen(settingsService: _settingsService),
+      ),
+    );
+  }
+
+  Future<void> _copyToClipboard() async {
+    if (_generatedSvg == null) return;
+
+    try {
+      Pasteboard.writeText(_generatedSvg!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('SVG copied to clipboard')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to copy: $e')));
+      }
+    }
+  }
+
+  Future<void> _copyAsImage() async {
+    if (_generatedSvg == null) return;
+
+    try {
+      setState(() {
+        _errorMessage = null;
+      });
+
+      // Get the RenderRepaintBoundary
+      final boundary =
+          _punchCardKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw Exception('Failed to find the punch card widget');
+      }
+
+      // Convert to image
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        throw Exception('Failed to convert to PNG');
+      }
+
+      // Copy to clipboard
+      await Pasteboard.writeImage(byteData.buffer.asUint8List());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Image copied to clipboard')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to copy image: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _saveSvgFile() async {
+    if (_generatedSvg == null) return;
+
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'punchcard_$timestamp.svg';
+      final file = File('${directory.path}/$fileName');
+
+      await file.writeAsString(_generatedSvg!);
+      _savedFilePath = file.path;
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Punch card saved'),
+            action: SnackBarAction(label: 'Share', onPressed: _shareSavedFile),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
+      }
+    }
+  }
+
+  Future<void> _shareSavedFile() async {
+    if (_savedFilePath == null) return;
+
+    try {
+      await Share.shareXFiles([XFile(_savedFilePath!)]);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to share: $e')));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Punch Card Generator')),
+      appBar: AppBar(
+        title: const Text('Punch Card Generator'),
+        actions: [
+          if (_generatedSvg != null) ...[
+            IconButton(
+              icon: const Icon(Icons.copy),
+              tooltip: 'Copy SVG',
+              onPressed: _copyToClipboard,
+            ),
+            IconButton(
+              icon: const Icon(Icons.image),
+              tooltip: 'Copy as Image',
+              onPressed: _copyAsImage,
+            ),
+            IconButton(
+              icon: const Icon(Icons.save),
+              tooltip: 'Save SVG',
+              onPressed: _saveSvgFile,
+            ),
+          ],
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _openSettings,
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Generate a Punch Card',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Enter text to convert into punch card instructions.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: _textController,
               decoration: const InputDecoration(
                 labelText: 'Enter text to generate punch card',
                 border: OutlineInputBorder(),
+                hintText: 'Example: HELLO WORLD',
               ),
               maxLines: 3,
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _generatePunchCard,
-              child:
-                  _isLoading
-                      ? const CircularProgressIndicator()
-                      : const Text('Generate Punch Card'),
+            ElevatedButton.icon(
+              onPressed: _isGenerating ? null : _generatePunchCard,
+              icon:
+                  _isGenerating
+                      ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                      : const Icon(Icons.auto_awesome),
+              label: Text(
+                _isGenerating ? 'Generating...' : 'Generate Punch Card',
+              ),
             ),
             if (_errorMessage != null)
               Padding(
@@ -510,13 +779,44 @@ class _PunchCardGeneratorAppState extends State<PunchCardGeneratorApp> {
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
-            if (_svgString != null)
+            if (_generatedSvg != null)
               Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: PunchCardSvgViewer(svgString: _svgString!),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextButton.icon(
+                            onPressed: _copyToClipboard,
+                            icon: const Icon(Icons.copy),
+                            label: const Text('Copy SVG'),
+                          ),
+                          const SizedBox(width: 16),
+                          TextButton.icon(
+                            onPressed: _copyAsImage,
+                            icon: const Icon(Icons.image),
+                            label: const Text('Copy as Image'),
+                          ),
+                          const SizedBox(width: 16),
+                          TextButton.icon(
+                            onPressed: _saveSvgFile,
+                            icon: const Icon(Icons.save),
+                            label: const Text('Save SVG'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      RepaintBoundary(
+                        key: _punchCardKey,
+                        child: PunchCardSvgViewer(svgString: _generatedSvg!),
+                      ),
+                    ],
+                  ),
                 ),
               ),
+            if (_generatedSvg == null) const Spacer(),
           ],
         ),
       ),

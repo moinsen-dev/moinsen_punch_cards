@@ -1,0 +1,53 @@
+{
+    "name": "Moinsen Punch Cards",
+    "short_name": "Punch Cards",
+    "description": "Create, edit, and learn punch card programming with an interactive visual editor powered by AI.",
+    "start_url": ".",
+    "scope": ".",
+    "display": "standalone",
+    "background_color": "#1565C0",
+    "theme_color": "#1565C0",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "categories": ["education", "utilities"],
+    "lang": "en",
+    "dir": "ltr",
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "screenshots/editor.svg",
+            "type": "image/svg+xml",
+            "form_factor": "narrow",
+            "label": "Punch card editor with interactive grid"
+        },
+        {
+            "src": "screenshots/game.svg",
+            "type": "image/svg+xml",
+            "form_factor": "narrow",
+            "label": "Game mode selection screen"
+        }
+    ]
+}

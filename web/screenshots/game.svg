@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <rect width="1080" height="1920" fill="#1565C0"/>
+  <text x="540" y="300" font-family="sans-serif" font-size="56" fill="white" text-anchor="middle" font-weight="bold">Choose Your Mode</text>
+  <rect x="80" y="400" width="920" height="500" rx="24" fill="#E3F2FD" stroke="#1565C0" stroke-width="3"/>
+  <text x="540" y="600" font-size="120" fill="#1565C0" text-anchor="middle">🧩</text>
+  <text x="540" y="720" font-family="sans-serif" font-size="42" fill="#1C1B1F" text-anchor="middle" font-weight="bold">Challenge Mode</text>
+  <text x="540" y="790" font-family="sans-serif" font-size="28" fill="#49454F" text-anchor="middle">Test your skills with AI-validated</text>
+  <text x="540" y="830" font-family="sans-serif" font-size="28" fill="#49454F" text-anchor="middle">programming challenges!</text>
+  <rect x="80" y="960" width="920" height="500" rx="24" fill="#BBDEFB" stroke="#1565C0" stroke-width="3"/>
+  <text x="540" y="1160" font-size="120" fill="#1565C0" text-anchor="middle">🎓</text>
+  <text x="540" y="1280" font-family="sans-serif" font-size="42" fill="#1C1B1F" text-anchor="middle" font-weight="bold">Tutorial Mode</text>
+  <text x="540" y="1350" font-family="sans-serif" font-size="28" fill="#49454F" text-anchor="middle">Learn the basics with guided lessons!</text>
+  <text x="540" y="1800" font-family="sans-serif" font-size="48" fill="white" text-anchor="middle" opacity="0.6">moinsen.dev</text>
+</svg>

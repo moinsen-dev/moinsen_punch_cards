@@ -1,0 +1,21 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build and deploy to Google Play (internal track)"
+  lane :deploy do
+    sh("flutter", "build", "appbundle", "--release")
+
+    upload_to_play_store(
+      track: "internal",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+    )
+  end
+
+  desc "Build AAB only (no upload)"
+  lane :build do
+    sh("flutter", "build", "appbundle", "--release")
+  end
+end

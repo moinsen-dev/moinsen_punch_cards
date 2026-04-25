@@ -1,0 +1,2 @@
+json_key_file("") # Path to Google Play Service Account JSON (set via env GOOGLE_PLAY_JSON)
+package_name("dev.moinsen.punchcards")

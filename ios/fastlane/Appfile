@@ -1,0 +1,2 @@
+app_identifier("dev.moinsen.punchcards")
+itunes_connect_id("") # Your Apple ID email (set via env)
